@@ -1,0 +1,16 @@
+[project]
+name = "cherry-pipelines"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "cherry-core>=0.5.7",
+    "cherry-etl>=0.6.1",
+    "clickhouse-connect>=0.8.17",
+    "dotenv>=0.9.9",
+]
+
+[dependency-groups]
+dev = [
+    "pyright>=1.1.400",
+    "ruff>=0.11.9",
+]
