@@ -7,10 +7,6 @@ from typing import Optional
 from cherry_core import ingest
 import requests
 
-from dotenv import load_dotenv
-
-load_dotenv()
-
 
 @dataclass
 class EvmConfig:
@@ -18,22 +14,12 @@ class EvmConfig:
     from_block: int
     to_block: Optional[int]
     chain_id: int
-    clickhouse_host: str
-    clickhouse_port: int
-    clickhouse_user: str
-    clickhouse_password: str
-    clickhouse_database: Optional[str]
 
 
 @dataclass
 class SvmConfig:
     from_block: int
     to_block: Optional[int]
-    clickhouse_host: str
-    clickhouse_port: int
-    clickhouse_user: str
-    clickhouse_password: str
-    clickhouse_database: Optional[str]
 
 
 EVM_DB_NAME = "evm"
@@ -182,6 +168,8 @@ def make_evm_provider(config: EvmConfig) -> ingest.ProviderConfig:
     )
 
 
+# Use this because it has more fresh data and has block_number=block_slot
+# whereas the solana-mainnet dataset is way behind and it has block_number=block_height
 _SQD_SVM_URL = "https://portal.sqd.dev/datasets/solana-beta"
 
 
@@ -193,8 +181,8 @@ def make_svm_provider() -> ingest.ProviderConfig:
     )
 
 
-def get_svm_start_block() -> int:
-    """Fetch Solana dataset start block from SQD portal"""
+def get_solana_start_block() -> int:
+    """Fetch Solana dataset start_block from SQD portal"""
     return int(requests.get(f"{_SQD_SVM_URL}/metadata").json()["start_block"])
 
 
@@ -223,32 +211,18 @@ def _to_provider_kind(kind: str) -> ingest.ProviderKind:
 
 
 def load_evm_config() -> EvmConfig:
-    """Load EVM configuration from environment variables.
-    `.env` file is loaded using `dotenv` package.
-    """
+    """Load EVM configuration from environment variables."""
     return EvmConfig(
         provider_kind=_to_provider_kind(os.environ["CHERRY_EVM_PROVIDER_KIND"]),
         from_block=_to_int_with_default(os.environ.get("CHERRY_FROM_BLOCK"), 0),
         to_block=_to_int(os.environ.get("CHERRY_TO_BLOCK")),
         chain_id=int(os.environ["CHERRY_EVM_CHAIN_ID"]),
-        clickhouse_host=os.environ.get("CLICKHOUSE_HOST", "127.0.0.1"),
-        clickhouse_port=int(os.environ.get("CLICKHOUSE_PORT", "8123")),
-        clickhouse_user=os.environ.get("CLICKHOUSE_USER", "default"),
-        clickhouse_password=os.environ.get("CLICKHOUSE_PASSWORD", ""),
-        clickhouse_database=os.environ.get("CLICKHOUSE_DATABASE", None),
     )
 
 
 def load_svm_config() -> SvmConfig:
-    """Load SVM configuration from environment variables.
-    `.env` file is loaded using `dotenv` package.
-    """
+    """Load SVM configuration from environment variables."""
     return SvmConfig(
         from_block=_to_int_with_default(os.environ.get("CHERRY_FROM_BLOCK"), 0),
         to_block=_to_int(os.environ.get("CHERRY_TO_BLOCK")),
-        clickhouse_host=os.environ.get("CLICKHOUSE_HOST", "127.0.0.1"),
-        clickhouse_port=int(os.environ.get("CLICKHOUSE_PORT", "8123")),
-        clickhouse_user=os.environ.get("CLICKHOUSE_USER", "default"),
-        clickhouse_password=os.environ.get("CLICKHOUSE_PASSWORD", ""),
-        clickhouse_database=os.environ.get("CLICKHOUSE_DATABASE", None),
     )

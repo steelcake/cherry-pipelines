@@ -142,6 +142,8 @@ dependencies = [
     { name = "cherry-etl" },
     { name = "clickhouse-connect" },
     { name = "dotenv" },
+    { name = "pyarrow" },
+    { name = "pyarrow-stubs" },
 ]
 
 [package.dev-dependencies]
@@ -156,6 +158,8 @@ requires-dist = [
     { name = "cherry-etl", specifier = ">=0.6.1" },
     { name = "clickhouse-connect", specifier = ">=0.8.17" },
     { name = "dotenv", specifier = ">=0.9.9" },
+    { name = "pyarrow", specifier = ">=20.0.0" },
+    { name = "pyarrow-stubs", specifier = ">=19.3" },
 ]
 
 [package.metadata.requires-dev]

@@ -17,7 +17,7 @@ when it reaches the tip of the chain if this argument is left empty.
 - `CLICKHOUSE_PASSWORD`, defaults to empty string,
 - `CLICKHOUSE_DATABASE`, defaults to `evm` or `svm` based on the pipeline.
 - `RUST_LOG` as explained in [env-logger docs](https://docs.rs/env_logger/latest/env_logger/#enabling-logging)
-- `PY_LOG_LEVEL` as explained in [python logging docs](https://docs.python.org/3/howto/logging.html)
+- `PY_LOG` as explained in [python logging docs](https://docs.python.org/3/howto/logging.html). Defaults to "INFO"
 
 ## Dev Setup
 
