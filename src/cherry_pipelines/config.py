@@ -151,7 +151,7 @@ _SQD_EVM_CHAIN_NAME = {
 
 
 def make_evm_table_name(base_name: str, chain_id: int) -> str:
-    return f"{base_name}_{_SQD_EVM_CHAIN_NAME[chain_id]}"
+    return f"{base_name}_chain{chain_id}"
 
 
 def make_evm_provider(config: EvmConfig) -> ingest.ProviderConfig:

@@ -1,29 +1,81 @@
+from clickhouse_connect.driver.asyncclient import AsyncClient
 import pyarrow as pa
 from cherry_etl import config as cc
 from cherry_etl import run_pipeline
 from cherry_core import ingest, evm_signature_to_topic0
 import logging
 import asyncio
-from typing import Dict, Any
+from typing import Dict, Any, cast
 import polars
 
-from ... import db
-from ...setup_env import setup_env
-from ...config import load_evm_config, make_evm_provider
+from cherry_pipelines import db
+from cherry_pipelines.setup_env import setup_env
+from cherry_pipelines.config import (
+    load_evm_config,
+    make_evm_provider,
+    make_evm_table_name,
+)
 
 setup_env()
 logger = logging.getLogger(__name__)
 
-_TABLE_NAME = "transfers"
+
+def make_writer(client: AsyncClient, table_name: str) -> cc.Writer:
+    skip_index = {}
+    skip_index[table_name] = [
+        cc.ClickHouseSkipIndex(
+            name=f"{table_name}_address_index",
+            val="address",
+            type_="bloom_filter(0.01)",
+            granularity=4,
+        ),
+        cc.ClickHouseSkipIndex(
+            name=f"{table_name}_from_index",
+            val="from",
+            type_="bloom_filter(0.01)",
+            granularity=4,
+        ),
+        cc.ClickHouseSkipIndex(
+            name=f"{table_name}_to_index",
+            val="to",
+            type_="bloom_filter(0.01)",
+            granularity=4,
+        ),
+        cc.ClickHouseSkipIndex(
+            name=f"{table_name}_timestamp_index",
+            val="timestamp",
+            type_="minmax",
+            granularity=4,
+        ),
+    ]
+
+    order_by = {}
+    order_by[table_name] = [
+        "block_number",
+        "transaction_index",
+        "log_index",
+    ]
+
+    writer = cc.Writer(
+        kind=cc.WriterKind.CLICKHOUSE,
+        config=cc.ClickHouseWriterConfig(
+            client=client,
+            order_by=order_by,
+            skip_index=skip_index,
+        ),
+    )
+
+    return writer
 
 
-# Custom processing step
-def join_data(data: Dict[str, polars.DataFrame], _: Any) -> Dict[str, polars.DataFrame]:
+def join_data(
+    data: Dict[str, polars.DataFrame], context: Any
+) -> Dict[str, polars.DataFrame]:
+    context = cast(Dict[str, bool], context)
+    table_name = context["table_name"]
+
     blocks = data["blocks"]
-    transfers = data["transfers"]
-
-    bn = blocks.get_column("number")
-    logger.info(f"processing data from: {bn.min()} to: {bn.max()}")
+    transfers = data[table_name]
 
     blocks = blocks.select(
         polars.col("number").alias("block_number"),
@@ -31,13 +83,16 @@ def join_data(data: Dict[str, polars.DataFrame], _: Any) -> Dict[str, polars.Dat
     )
     out = transfers.join(blocks, on="block_number")
 
-    return {"transfers": out}
+    out_d = {}
+    out_d[table_name] = out
+    return out_d
 
 
 async def main():
     cfg = load_evm_config()
+    table_name = make_evm_table_name("erc20_transfers", cfg.chain_id)
     client = await db.connect_evm()
-    from_block = await db.get_start_block(client, _TABLE_NAME, "block_number")
+    from_block = await db.get_start_block(client, table_name, "block_number")
     from_block = max(cfg.from_block, from_block)
     logger.info(f"starting to ingest from block {from_block}")
     provider = make_evm_provider(cfg)
@@ -46,10 +101,8 @@ async def main():
         kind=ingest.QueryKind.EVM,
         params=ingest.evm.Query(
             from_block=from_block,
-            # Select the logs we are interested in
             logs=[
                 ingest.evm.LogRequest(
-                    # Don't pass address filter to get all erc20 transfers
                     # address=[
                     #     "0xdAC17F958D2ee523a2206206994597C13D831ec7",  # USDT
                     #     "0xB8c77482e45F1F44dE1745F52C74426C631bDD52",  # BNB
@@ -61,7 +114,6 @@ async def main():
                     topic0=[
                         evm_signature_to_topic0("Transfer(address,address,uint256)")
                     ],
-                    # include the blocks related to our logs
                     include_blocks=True,
                 )
             ],
@@ -70,6 +122,7 @@ async def main():
                 block=ingest.evm.BlockFields(number=True, timestamp=True),
                 log=ingest.evm.LogFields(
                     block_number=True,
+                    transaction_index=True,
                     transaction_hash=True,
                     log_index=True,
                     address=True,
@@ -83,12 +136,7 @@ async def main():
         ),
     )
 
-    writer = cc.Writer(
-        kind=cc.WriterKind.CLICKHOUSE,
-        config=cc.ClickHouseWriterConfig(
-            client=client,
-        ),
-    )
+    writer = make_writer(client, table_name)
 
     pipeline = cc.Pipeline(
         provider=provider,
@@ -99,7 +147,7 @@ async def main():
                 kind=cc.StepKind.EVM_DECODE_EVENTS,
                 config=cc.EvmDecodeEventsConfig(
                     event_signature="Transfer(address indexed from, address indexed to, uint256 amount)",
-                    output_table="transfers",
+                    output_table=table_name,
                     # Write null if decoding fails instead of erroring out.
                     #
                     # This is needed if we are trying to decode all logs that match our topic0 without
@@ -121,12 +169,13 @@ async def main():
                 kind=cc.StepKind.CUSTOM,
                 config=cc.CustomStepConfig(
                     runner=join_data,
+                    context={"table_name": table_name},
                 ),
             ),
             cc.Step(
                 kind=cc.StepKind.CAST,
                 config=cc.CastConfig(
-                    table_name="transfers",
+                    table_name=table_name,
                     mappings={"timestamp": pa.int64()},
                 ),
             ),

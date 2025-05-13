@@ -15,7 +15,6 @@ when it reaches the tip of the chain if this argument is left empty.
 - `CLICKHOUSE_PORT`, defaults to `8123`.
 - `CLICKHOUSE_USER`, defaults to `default`.
 - `CLICKHOUSE_PASSWORD`, defaults to empty string,
-- `CLICKHOUSE_DATABASE`, defaults to `evm` or `svm` based on the pipeline.
 - `RUST_LOG` as explained in [env-logger docs](https://docs.rs/env_logger/latest/env_logger/#enabling-logging)
 - `PY_LOG` as explained in [python logging docs](https://docs.python.org/3/howto/logging.html). Defaults to "INFO"
 
@@ -37,8 +36,11 @@ And this to stop the container without deleting the data:
 docker-compose down
 ```
 
-TODO: create a nice way to specify which pipelines/materialized-views should be run and 
-make a script runs them for development.
+### Run a pipeline
+
+```bash
+uv run pipelines/evm/erc20_transfers.py
+```
 
 ## Data Provider
 
@@ -59,7 +61,7 @@ Materialized views are defined in SQL files with an accompanying script that dep
 The evm pipelines are multi-chain and index multiple blockchains in parallel.
 
 All chains are written to their own tables. For example the table for erc20 transfers would have a table named
-`erc20_eth_mainnet` for ethereum and `erc20_optimism_mainnet` for optimism.
+`erc20_chain1` for ethereum and `erc20_chain10` for optimism.
 
 Specify the `CHERRY_EVM_CHAIN_ID` env variable to set the chain you want to index when indexing evm.
 
