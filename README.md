@@ -1,6 +1,6 @@
 # cherry-pipelines
 
-This is a collection of pipelines that are built using cherry and ClickHouse materialized views.
+This is a collection of pipelines that are built using [cherry](https://github.com/steelcake/cherry) and ClickHouse materialized views.
 
 All data is stored in ClickHouse.
 
@@ -81,3 +81,9 @@ at your option.
 Unless you explicitly state otherwise, any contribution intentionally submitted
 for inclusion in the work by you, as defined in the Apache-2.0 license, shall be
 dual licensed as above, without any additional terms or conditions.
+
+## Sponsors
+
+[<img src="https://steelcake.com/envio-logo.png" width="150px" />](https://envio.dev)
+[<img src="https://steelcake.com/sqd-logo.png" width="165px" />](https://sqd.ai)
+[<img src="https://steelcake.com/space-operator-logo.webp" height="75px" />](https://linktr.ee/spaceoperator)
