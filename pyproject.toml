@@ -1,6 +1,6 @@
 [project]
 name = "cherry-pipelines"
-version = "0.0.1"
+version = "0.0.2"
 description = "A collection of blockchain data pipelines built with cherry"
 repository = "https://github.com/steelcake/cherry-pipelines"
 homepage = "https://github.com/steelcake/cherry-pipelines"
