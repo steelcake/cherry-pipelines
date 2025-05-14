@@ -45,4 +45,3 @@ jobs:
           docker buildx build --cache-from type=local,src=/tmp/.buildx-cache --cache-to type=local,dest=/tmp/.buildx-cache,mode=max --tag $REGISTRY_TAG:$VERSION --tag $REGISTRY_TAG:$SHORT_SHA --load .
           docker push $REGISTRY_TAG:$VERSION
           docker push $REGISTRY_TAG:$SHORT_SHA
-          docker push $REGISTRY_TAG:latest
