@@ -6,6 +6,8 @@ All data is stored in ClickHouse.
 
 ## Configuration
 
+- `CHERRY_PIPELINE_KIND`, "evm" or "svm".
+- `CHERRY_PIPELINE_NAME`, name of the pipeline to run e.g. "erc20_transfers".
 - `CHERRY_FROM_BLOCK`, specify the block that the indexing should start from. defaults to 0.
 - `CHERRY_TO_BLOCK`, specify the block that the indexing should stop at. has no default. Indexing waits for new blocks
 - `CHERRY_EVM_PROVIDER_KIND`, specify which provider to use when indexing evm chains. Can be `hypersync` or `sqd`. Has no default an is required when indexing evm.
@@ -41,6 +43,15 @@ docker-compose down
 ```bash
 uv run pipelines/evm/erc20_transfers.py
 ```
+
+## Development
+
+This repo uses `uv` for development.
+
+- Format the code with `uv run ruff format`
+- Lint the code with `uv run ruff check`
+- Run type checks with `uv run pyright`
+- Run the tests with `uv run pytest`
 
 ## Data Provider
 

@@ -1,14 +1,17 @@
 [project]
 name = "cherry-pipelines"
-version = "0.1.0"
-requires-python = ">=3.12"
+version = "0.0.1"
+description = "A collection of blockchain data pipelines built with cherry"
+repository = "https://github.com/steelcake/cherry-pipelines"
+homepage = "https://github.com/steelcake/cherry-pipelines"
+readme = "README.md"
+license = "MIT OR Apache-2.0"
+requires-python = ">=3.11"
 dependencies = [
     "cherry-core>=0.5.7",
     "cherry-etl>=0.6.1",
     "clickhouse-connect>=0.8.17",
     "dotenv>=0.9.9",
-    "duckdb>=1.2.2",
-    "glaciers>=2.0.1",
     "pyarrow>=20.0.0",
     "pyarrow-stubs>=19.3",
 ]
@@ -22,3 +25,6 @@ dev = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[project.scripts]
+runner = "scripts:runner"

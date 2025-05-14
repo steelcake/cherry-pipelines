@@ -1,24 +1,18 @@
 from clickhouse_connect.driver.asyncclient import AsyncClient
 import pyarrow as pa
 from cherry_etl import config as cc
-from cherry_etl import run_pipeline
 from cherry_core import ingest, evm_signature_to_topic0
 import logging
-import asyncio
 from typing import Dict, Any, cast
 import polars
 
 from cherry_pipelines import db
-from cherry_pipelines.setup_env import setup_env
 from cherry_pipelines.config import (
-    load_evm_config,
-    make_evm_provider,
+    EvmConfig,
     make_evm_table_name,
 )
 
-setup_env()
 logger = logging.getLogger(__name__)
-
 
 def make_writer(client: AsyncClient, table_name: str) -> cc.Writer:
     skip_index = {}
@@ -88,14 +82,11 @@ def join_data(
     return out_d
 
 
-async def main():
-    cfg = load_evm_config()
+async def make_pipeline(cfg: EvmConfig) -> cc.Pipeline:
     table_name = make_evm_table_name("erc20_transfers", cfg.chain_id)
-    client = await db.connect_evm()
-    from_block = await db.get_start_block(client, table_name, "block_number")
+    from_block = await db.get_max_block(cfg.client, table_name, "block_number")
     from_block = max(cfg.from_block, from_block)
     logger.info(f"starting to ingest from block {from_block}")
-    provider = make_evm_provider(cfg)
 
     query = ingest.Query(
         kind=ingest.QueryKind.EVM,
@@ -136,10 +127,10 @@ async def main():
         ),
     )
 
-    writer = make_writer(client, table_name)
+    writer = make_writer(cfg.client, table_name)
 
     pipeline = cc.Pipeline(
-        provider=provider,
+        provider=cfg.provider,
         writer=writer,
         query=query,
         steps=[
@@ -182,8 +173,5 @@ async def main():
         ],
     )
 
-    await run_pipeline(pipeline=pipeline)
+    return pipeline
 
-
-if __name__ == "__main__":
-    asyncio.run(main())
