@@ -148,7 +148,7 @@ wheels = [
 
 [[package]]
 name = "cherry-etl"
-version = "0.6.3"
+version = "0.6.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cherry-core" },
@@ -163,9 +163,9 @@ dependencies = [
     { name = "pyiceberg" },
     { name = "sqlalchemy" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ad/91/33487e6fc790713b4bf416d76da96ad8115643d6467de9a1baa7b033e620/cherry_etl-0.6.3.tar.gz", hash = "sha256:2d837095eb6f32077e58785bce94bb75667f69b752ec6b465f2be96407a99173", size = 53480 }
+sdist = { url = "https://files.pythonhosted.org/packages/31/37/57a4cc0da87704381715547ae814d27c4420c3bedcfa14ae573e0cdcdf27/cherry_etl-0.6.4.tar.gz", hash = "sha256:ad0557a767aca4ca9087c3c58519381031bb9a2593ff961f52327a8321010628", size = 53488 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e4/89/b127d3be1f1634cc07a03448fd57df87041f53bfc8c72ff52c9439f97759/cherry_etl-0.6.3-py3-none-any.whl", hash = "sha256:5b567ed1e59bf62a27427a190534975297b0600de7548e6b3e981e0f2c0653fb", size = 35820 },
+    { url = "https://files.pythonhosted.org/packages/0a/cb/48b60e6aec6fbfe5dc0eeda8b0660e4edfd7436dc7d0eb2d786be41e7f82/cherry_etl-0.6.4-py3-none-any.whl", hash = "sha256:6625cdd918d61207f3970e326ecd45f36bda9a66b8240eeffbcf5f4d8be69ec0", size = 35822 },
 ]
 
 [[package]]
@@ -191,7 +191,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "cherry-core", specifier = ">=0.5.7" },
-    { name = "cherry-etl", specifier = ">=0.6.3" },
+    { name = "cherry-etl", specifier = ">=0.6.4" },
     { name = "clickhouse-connect", specifier = ">=0.8.17" },
     { name = "dotenv", specifier = ">=0.9.9" },
     { name = "pyarrow", specifier = ">=20.0.0" },
@@ -342,7 +342,7 @@ wheels = [
 
 [[package]]
 name = "glaciers"
-version = "2.0.1"
+version = "2.0.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "maturin" },
@@ -351,9 +351,16 @@ dependencies = [
     { name = "pyarrow" },
     { name = "toml" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f4/4f/0667527b8bed1b2aa5fb464151c7348da75958787bf666080f8ef9c2ed26/glaciers-2.0.1.tar.gz", hash = "sha256:6f8426502228b9f85e7c319b33e7f9dd5663571b9f09fea296e5a8fb91e29b94", size = 85436 }
+sdist = { url = "https://files.pythonhosted.org/packages/49/26/c486db2a437c8ffb56fad493feea476ab42a241909b91487499b41f83591/glaciers-2.0.2.tar.gz", hash = "sha256:890843755e78faa480206f30511b4a0409073491e34b1fa0a772e8052003dcd9", size = 86715 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d6/db/69d7e76535dcf54375ab22b607fba35b9bc54e4ba8d4e591ef178ddac476/glaciers-2.0.1-cp312-cp312-manylinux_2_39_x86_64.whl", hash = "sha256:2f5d8a428616c0a16e3befa20fc0a934e29da8a089e53da6d5af7686d8c82967", size = 16786314 },
+    { url = "https://files.pythonhosted.org/packages/22/5e/fd0794b587e301f1e82d307011b6b887f2b6720596b457c55564af8e736f/glaciers-2.0.2-cp311-cp311-macosx_10_12_x86_64.whl", hash = "sha256:0a2d6a1f4a92f9c3168c7cc4c9899fe0ea77041ce829af0281f58e5c0c8d97ed", size = 13507526 },
+    { url = "https://files.pythonhosted.org/packages/83/01/fd15abefce809c943e0a6e02123491224b28a3b1e91cc3dbd0bff2e7f973/glaciers-2.0.2-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:9ec14e44df40eebd867fda3d94edf8c1d16ab018372aabcd6b02bbaf169de894", size = 12806487 },
+    { url = "https://files.pythonhosted.org/packages/19/82/4bbbb9001f671d29865cbf91c9865a0df9df2600bf69e836c66d1935ebc3/glaciers-2.0.2-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:d92ed2bdfd41eefdca3004f55a814a67558b2b2e02dc48a929bdcaf6cf6a5ea4", size = 12918640 },
+    { url = "https://files.pythonhosted.org/packages/ad/5b/c4da1764f02725bf8bbcfc3bb4132e73c4ce3b8f887aea4ffcd78c34adef/glaciers-2.0.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:d8b87157aedad79d8ee40b74a911038eea7323df6e37dd6ab4f6c167686798cc", size = 13727594 },
+    { url = "https://files.pythonhosted.org/packages/63/c2/b8a65b4199e96f3c8fd09540af9bfb7d9c3b90364fef1ab042bfa1b2d53f/glaciers-2.0.2-cp312-cp312-macosx_10_12_x86_64.whl", hash = "sha256:357538282044e7dd6007c3224d526dd1b4b165edd619102cf8d7fa1810c3992f", size = 13505406 },
+    { url = "https://files.pythonhosted.org/packages/96/bd/3837132cd3925878a957e37e159a9e7e4445d2e5f58816d4ac14370c9c7e/glaciers-2.0.2-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:532ed65c732e53cba279f7a91b7bdce17505728e759a8092ffd3c50632868a25", size = 12804648 },
+    { url = "https://files.pythonhosted.org/packages/5f/fe/9240753e4d21fd06ca0ae26d0bc3eddd3f30007104a73f0a307f81f8ce82/glaciers-2.0.2-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:f42f27ca574c2d22475a331a64ef3bc3017784748ea8202f8a0f535105f5efa3", size = 12919866 },
+    { url = "https://files.pythonhosted.org/packages/dd/3d/cf8b57cf4eccbe375c72f0985df36fe45e1bcf05fa8dfa769498523014df/glaciers-2.0.2-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:5d2ce9e81493d20db470609993c1662db52b1fcc90843f51c7555ad8c6b71cc3", size = 13731269 },
 ]
 
 [[package]]

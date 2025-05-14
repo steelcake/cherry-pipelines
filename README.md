@@ -60,12 +60,6 @@ And this to stop the container without deleting the data:
 docker-compose down
 ```
 
-### Run a pipeline
-
-```bash
-uv run pipelines/evm/erc20_transfers.py
-```
-
 ## Development
 
 This repo uses `uv` for development.
