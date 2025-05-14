@@ -37,7 +37,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-buildx-
 
-      - name: Build, tag, and push image to Amazon ECR
+      - name: Build, tag, and push image to ghcr
         env:
           REGISTRY_TAG: "ghcr.io/steelcake/cherry-pipelines"
         run: |
