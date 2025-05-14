@@ -4,8 +4,26 @@ This is a collection of pipelines that are built using [cherry](https://github.c
 
 All data is stored in ClickHouse.
 
-## Configuration
+## Python version
 
+This project is meant to be run with Python 3.12
+
+If you are using `uv` for development it should pick this up automatically because of the `.python-version` in the project root.
+
+The docker image is configured to use this version of Python as well.
+
+## Running a pipeline 
+
+Use the `main` script to run a pipeline:
+
+```bash
+uv run scripts/main.py
+```
+
+It takes these parameters as environment variables:
+
+- `CHERRY_PIPELINE_KIND`, "evm" or "svm".
+- `CHERRY_PIPELINE_NAME`, name of the pipeline to run e.g. "erc20_transfers".
 - `CHERRY_FROM_BLOCK`, specify the block that the indexing should start from. defaults to 0.
 - `CHERRY_TO_BLOCK`, specify the block that the indexing should stop at. has no default. Indexing waits for new blocks
 - `CHERRY_EVM_PROVIDER_KIND`, specify which provider to use when indexing evm chains. Can be `hypersync` or `sqd`. Has no default an is required when indexing evm.
@@ -17,6 +35,12 @@ when it reaches the tip of the chain if this argument is left empty.
 - `CLICKHOUSE_PASSWORD`, defaults to empty string,
 - `RUST_LOG` as explained in [env-logger docs](https://docs.rs/env_logger/latest/env_logger/#enabling-logging)
 - `PY_LOG` as explained in [python logging docs](https://docs.python.org/3/howto/logging.html). Defaults to "INFO"
+
+An `.env` file placed in the project root can be used to define these for development.
+
+## Running with docker
+
+We publish a docker image that runs the `main` script.
 
 ## Dev Setup
 
@@ -41,6 +65,15 @@ docker-compose down
 ```bash
 uv run pipelines/evm/erc20_transfers.py
 ```
+
+## Development
+
+This repo uses `uv` for development.
+
+- Format the code with `uv run ruff format`
+- Lint the code with `uv run ruff check`
+- Run type checks with `uv run pyright`
+- Run the tests with `uv run pytest`
 
 ## Data Provider
 
