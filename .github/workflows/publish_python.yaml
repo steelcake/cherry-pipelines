@@ -19,6 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v3
+      - run: uv lock --check
       - run: uv build
       # Check that basic features work and we didn't miss to include crucial files
       # - name: Smoke test (wheel)
