@@ -9,7 +9,7 @@ license = "MIT OR Apache-2.0"
 requires-python = ">=3.11"
 dependencies = [
     "cherry-core>=0.5.7",
-    "cherry-etl>=0.6.1",
+    "cherry-etl>=0.6.3",
     "clickhouse-connect>=0.8.17",
     "dotenv>=0.9.9",
     "pyarrow>=20.0.0",
@@ -19,12 +19,10 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pyright>=1.1.400",
+    "pytest>=8.3.5",
     "ruff>=0.11.9",
 ]
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
-
-[project.scripts]
-runner = "scripts:runner"

@@ -6,6 +6,7 @@ from typing import Optional
 from cherry_core import ingest
 from clickhouse_connect.driver.asyncclient import AsyncClient
 
+
 @dataclass
 class EvmConfig:
     provider: ingest.ProviderConfig

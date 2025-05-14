@@ -14,6 +14,7 @@ from cherry_pipelines.config import (
 
 logger = logging.getLogger(__name__)
 
+
 def make_writer(client: AsyncClient, table_name: str) -> cc.Writer:
     skip_index = {}
     skip_index[table_name] = [
@@ -174,4 +175,3 @@ async def make_pipeline(cfg: EvmConfig) -> cc.Pipeline:
     )
 
     return pipeline
-

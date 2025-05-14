@@ -1,5 +1,4 @@
 import logging
-from types import CoroutineType
 from clickhouse_connect.driver.asyncclient import AsyncClient
 import clickhouse_connect
 import os
@@ -7,10 +6,10 @@ from dotenv import load_dotenv
 import asyncio
 from cherry_core import ingest
 from cherry_pipelines.config import EvmConfig, SvmConfig
-from typing import Any, Callable, Optional
+from typing import Awaitable, Callable, Optional
 import requests
 from cherry_pipelines import evm
-from cherry_etl import config as cc
+from cherry_etl import config as cc, run_pipeline
 
 logger = logging.getLogger(__name__)
 
@@ -138,7 +137,10 @@ _SQD_EVM_CHAIN_NAME = {
     999999999: "zora-sepolia",
 }
 
-def make_evm_provider(provider_kind: ingest.ProviderKind, chain_id: int) -> ingest.ProviderConfig:
+
+def make_evm_provider(
+    provider_kind: ingest.ProviderKind, chain_id: int
+) -> ingest.ProviderConfig:
     """Create an evm provider config based on `config.ProviderKind` and `config.chain_id`"""
     url = ""
     if provider_kind == ingest.ProviderKind.HYPERSYNC:
@@ -169,11 +171,14 @@ def get_solana_start_block() -> int:
     """Fetch Solana dataset start_block from SQD portal"""
     return int(requests.get(f"{_SQD_SVM_URL}/metadata").json()["start_block"])
 
+
 def _to_int(val: Optional[str]) -> Optional[int]:
     if val is not None:
         return int(val)
     else:
         return None
+
+
 def _to_int_with_default(val: Optional[str], default: int) -> int:
     int_val = _to_int(val)
     if int_val is not None:
@@ -189,6 +194,7 @@ def _to_provider_kind(kind: str) -> ingest.ProviderKind:
         return ingest.ProviderKind.HYPERSYNC
     else:
         raise Exception("invalid provider kind")
+
 
 async def load_evm_config() -> EvmConfig:
     """Load EVM configuration from environment variables."""
@@ -213,20 +219,21 @@ async def load_svm_config() -> SvmConfig:
 
     client = await connect_svm()
     provider = make_svm_provider()
-    
+
     dataset_start_block = get_solana_start_block()
 
     logger.info(f"Solana dataset start block is: {dataset_start_block}")
 
-    from_block=_to_int_with_default(os.environ.get("CHERRY_FROM_BLOCK"), 0)
-    from_block=max(dataset_start_block, from_block)
+    from_block = _to_int_with_default(os.environ.get("CHERRY_FROM_BLOCK"), 0)
+    from_block = max(dataset_start_block, from_block)
 
     return SvmConfig(
         from_block=from_block,
         to_block=_to_int(os.environ.get("CHERRY_TO_BLOCK")),
-        client = client,
-        provider= provider,
+        client=client,
+        provider=provider,
     )
+
 
 async def _connect(db_name: str) -> AsyncClient:
     return await clickhouse_connect.get_async_client(
@@ -237,6 +244,7 @@ async def _connect(db_name: str) -> AsyncClient:
         database=db_name,
     )
 
+
 async def connect_evm() -> AsyncClient:
     return await _connect("evm")
 
@@ -244,17 +252,34 @@ async def connect_evm() -> AsyncClient:
 async def connect_svm() -> AsyncClient:
     return await _connect("svm")
 
-_EVM_PIPELINES: dict[str, Callable[[EvmConfig], CoroutineType[Any, Any, cc.Pipeline]]] = {
+
+_EVM_PIPELINES: dict[str, Callable[[EvmConfig], Awaitable[cc.Pipeline]]] = {
     "erc20_transfers": evm.erc20_transfers.make_pipeline,
 }
 
-_SVM_PIPELINES = {
+_SVM_PIPELINES = {}
 
-}
 
 async def main():
     load_dotenv()
     logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO").upper())
-    
+
+    pipeline_kind = os.environ["CHERRY_PIPELINE_KIND"]
+    pipeline_name = os.environ["CHERRY_PIPELINE_NAME"]
+
+    pipeline = None
+    if pipeline_kind == "evm":
+        cfg = await load_evm_config()
+        pipeline = await _EVM_PIPELINES[pipeline_name](cfg)
+    elif pipeline_kind == "svm":
+        cfg = await load_svm_config()
+        pipeline = await _SVM_PIPELINES[pipeline_name](cfg)
+    else:
+        raise Exception("unknown CHERRY_PIPELINE_KIND, allowed values are evm and svm.")
+
+    logger.info(f"Running pipeline with config: {pipeline}")
+    await run_pipeline(pipeline)
+
+
 if __name__ == "__main__":
     asyncio.run(main())
