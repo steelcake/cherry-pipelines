@@ -128,27 +128,27 @@ wheels = [
 
 [[package]]
 name = "cherry-core"
-version = "0.5.7"
+version = "0.5.8"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/67/22/de53a3194acdaf41cae9bae2f725a2ef968610feab730a2410225df9c723/cherry_core-0.5.7.tar.gz", hash = "sha256:d2bfab52b11df9639c59d82f5c5024a7b5f65c37ce382445c1f4e584d0757c18", size = 141848 }
+sdist = { url = "https://files.pythonhosted.org/packages/fd/b1/2cc9a2a77a0520795b485cddd2fa8a7c665e381cbe9dc5bcf23e46db01c2/cherry_core-0.5.8.tar.gz", hash = "sha256:dd069e7895a0d5d79426861768ed2bf2e9e66d3de34356fb913ce47aac279a0f", size = 141953 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/0f/41/1ff49758656432e4968c54a05c8b5285926e38dd22cd9c94fac293a693f3/cherry_core-0.5.7-cp311-cp311-macosx_10_12_x86_64.whl", hash = "sha256:6da482488e361ad50f086675ae120e1e9450de3afe2c8a037ba64e70fb90dd5d", size = 9074944 },
-    { url = "https://files.pythonhosted.org/packages/fc/d6/457bdf45efc07d992f4eaed922b6244bab8ad9b34dceae5340f88e5bd25d/cherry_core-0.5.7-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:98e8b6947c3a37a592621efbb2863bf2b52904d40a017dcccde6cc95702c230a", size = 8389189 },
-    { url = "https://files.pythonhosted.org/packages/9a/28/4dac12a53efce36c06997ae3b3c2b9dd61ba5b37daf2b613d38fe4b9c1e1/cherry_core-0.5.7-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:a5a645643795553b9c3515ee0a0cd64fd21f298898d9e71f944a21e362f9a564", size = 9663150 },
-    { url = "https://files.pythonhosted.org/packages/de/92/8b882bdbcb94c6c4d6d5f33038e59b9c5b6a7c23727599c3a59f2fe98158/cherry_core-0.5.7-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:627f005b19a92bc8daed2d152779a925e67079435ada2c660461a17b4a8c4e59", size = 10018405 },
-    { url = "https://files.pythonhosted.org/packages/26/26/85669a67c3c8458a8edc2448145119fbc58d9681815167de62b4ac1032d7/cherry_core-0.5.7-cp312-cp312-macosx_10_12_x86_64.whl", hash = "sha256:aa4b2f967f421e0025fa5a85530ddbc99781396f4ff6291e9f22c7b73ee8aff2", size = 9067867 },
-    { url = "https://files.pythonhosted.org/packages/f1/19/f205ee594421580463854d1502fe49fa6e41095fd946762543e1ab349929/cherry_core-0.5.7-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:026a9fec7b965928e46c03e9e33326f2bb723f1452d2a71d06912875e18f3de8", size = 8384469 },
-    { url = "https://files.pythonhosted.org/packages/55/fe/c2ddd4e5ab408f5ff9138b79ac684644e872a17cd2b8673b82753340a6ee/cherry_core-0.5.7-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:ef7d6f989904b6c93fa877ae15b837fa62395ac478068920cef8282da334a5af", size = 9655436 },
-    { url = "https://files.pythonhosted.org/packages/e3/91/f79e58ad416f53f938f0890e55f818e9a9b4ab431e7688a0424a6179c30b/cherry_core-0.5.7-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:45499c9dec70c10fe0769e32515445c9a7da0e892cdf0d5bc94bfec32d397bdb", size = 10016996 },
-    { url = "https://files.pythonhosted.org/packages/df/7d/dbe584c85af2dbb4d1e207e1e5febf0e89278e132f7a3aa97bd83db1d047/cherry_core-0.5.7-cp313-cp313-macosx_10_12_x86_64.whl", hash = "sha256:60475d4d791103c72088d82bb6e08293562d6ed65b1e9fb478070b2cd11bbaa1", size = 9066196 },
-    { url = "https://files.pythonhosted.org/packages/47/e8/fd1cd6d1b7316dbf78f73ca80a19c3cda8f52735275ac34e1228774b257a/cherry_core-0.5.7-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:e2a1f4984419fec45e5b3239d9726fa54a010c4aa266271bc46e25a2a2d91da2", size = 8383585 },
-    { url = "https://files.pythonhosted.org/packages/45/f3/e1a56b9ded3dc5ab2b8415313e4d935a296b508a95365b07c2297799d5ee/cherry_core-0.5.7-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:03ea0a5e07deaebc39aba390df2c134337d49e481c80cfc2c28146492560237c", size = 9655931 },
-    { url = "https://files.pythonhosted.org/packages/b6/be/47baf461d17c9bc22d2135dfb318881bb61df2dfd2d6a57978f103353cfe/cherry_core-0.5.7-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:07b1c5a622011f59843e12875725305a4ae02948e49bf5e12d699d0e76556e7c", size = 10016343 },
+    { url = "https://files.pythonhosted.org/packages/9f/c9/b73541327c0f669d46ce40aeda3fcf3a6e2fa11754ad410c3a976d6f22d4/cherry_core-0.5.8-cp311-cp311-macosx_10_12_x86_64.whl", hash = "sha256:eee4211fbb12b788daecac745f8e725bf0f0dec3da2a95376bf5c6b9350be870", size = 9122543 },
+    { url = "https://files.pythonhosted.org/packages/c7/33/814786d9140624e155b29424a1048a9fd68d3a00d8658d3a0462ea6d128f/cherry_core-0.5.8-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:0f812cdfac2d4d8c18a8f91a879bdf428860c0c2076df9da22fad5fc86cadc1c", size = 8420409 },
+    { url = "https://files.pythonhosted.org/packages/5a/b8/fa74e6e35f7e7829689eca50593d52e864c5ee181cefd2e5707b20587926/cherry_core-0.5.8-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:bfee7e0c935fcfd8a6d001f3292f842ef648ed7fa742c87f2465c09f195a7277", size = 9696872 },
+    { url = "https://files.pythonhosted.org/packages/0c/28/48f9d2d7763881117382225811f06fae5e4cd887ea82988878d5303423ae/cherry_core-0.5.8-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:e4ee1f3e20606caf484ef5411dacca90841823ba811856fe66fd624b23c57a7a", size = 10050792 },
+    { url = "https://files.pythonhosted.org/packages/26/a8/7f62486e4b24a3a8163ef563401ac80e271f1063f7e7f340f0ee7f668c21/cherry_core-0.5.8-cp312-cp312-macosx_10_12_x86_64.whl", hash = "sha256:8a621d0cbae533e4374cbb24b198c66c498f5f2adbaa4ff68cfe83c9ac747f87", size = 9114464 },
+    { url = "https://files.pythonhosted.org/packages/5d/e0/3e7bc39154ac63bd6064e914b80dc84fae3501863c9ae96ab1c4a0d5f032/cherry_core-0.5.8-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:1fd2a369eb3cd13e67ca00cc7518b15ae31f356225b65adaa3b5d3f4057bd961", size = 8418668 },
+    { url = "https://files.pythonhosted.org/packages/4e/0c/f8eda9b9d3eace81421b358355faa60a24686ff6583e97b758629af7cbc1/cherry_core-0.5.8-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:07c35fc8598dc5a9a53911568763695b1a56e304f73a50fec136c5c0ae83f892", size = 9691682 },
+    { url = "https://files.pythonhosted.org/packages/1f/5b/16cfce6763213019708feb9ebe9a1b04a928be82ee43482c01f0be62c283/cherry_core-0.5.8-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:421424054559fa6caa78297cccde338a81f12bdb2111823d028954774edfc770", size = 10048117 },
+    { url = "https://files.pythonhosted.org/packages/65/0e/2107137d57f7325c182d6f37727249076e213ddf05d3fec67d30c2b8ed0c/cherry_core-0.5.8-cp313-cp313-macosx_10_12_x86_64.whl", hash = "sha256:a1bf4ee1ccf17c2b16ab5b36483b4912062cdcf5b82f5d2d2f6f46bd86ebc751", size = 9112673 },
+    { url = "https://files.pythonhosted.org/packages/eb/6e/20be73bb082372b6ef137e7305c0149ff1cd12228500f0badc15cafda70b/cherry_core-0.5.8-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:3e17e38e2feeaf259fe211a106b1bf8e7f9141d46c866fb64dca1c306e5d07d5", size = 8417382 },
+    { url = "https://files.pythonhosted.org/packages/c5/88/caf0642311f210d10406d1fd97f9e3115efc41b2f8ac4a5655a1c5833d79/cherry_core-0.5.8-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:465e5eba20ddfd29375b9095eb9b4199994a30849d96763a2c5adcdfa611ffac", size = 9691385 },
+    { url = "https://files.pythonhosted.org/packages/43/87/b2451c9775913b6282ba7a2391a5135bf06d8c727173f15752744f994abf/cherry_core-0.5.8-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:adc62c03642464a223a92e1e0b108c885df1cad64f5df4eb62d331b81d55d741", size = 10048372 },
 ]
 
 [[package]]
 name = "cherry-etl"
-version = "0.6.4"
+version = "0.6.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cherry-core" },
@@ -163,14 +163,14 @@ dependencies = [
     { name = "pyiceberg" },
     { name = "sqlalchemy" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/31/37/57a4cc0da87704381715547ae814d27c4420c3bedcfa14ae573e0cdcdf27/cherry_etl-0.6.4.tar.gz", hash = "sha256:ad0557a767aca4ca9087c3c58519381031bb9a2593ff961f52327a8321010628", size = 53488 }
+sdist = { url = "https://files.pythonhosted.org/packages/b7/2c/6d7fa6de1e8487f95adb1043138500c7484e28771ca96b68f45e90e4e5e8/cherry_etl-0.6.5.tar.gz", hash = "sha256:c8ad69bb193e5ce79a28c73ab571205571a42c109161d5bada717b264c13d8e3", size = 53486 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/0a/cb/48b60e6aec6fbfe5dc0eeda8b0660e4edfd7436dc7d0eb2d786be41e7f82/cherry_etl-0.6.4-py3-none-any.whl", hash = "sha256:6625cdd918d61207f3970e326ecd45f36bda9a66b8240eeffbcf5f4d8be69ec0", size = 35822 },
+    { url = "https://files.pythonhosted.org/packages/3a/49/26e8ded9022f262de488ea34758ec395310213615ac41a72de2b3fa684f8/cherry_etl-0.6.5-py3-none-any.whl", hash = "sha256:8d6eb9d1a6eeb4b483d2de72d280673721c4cac0eec2295811fd029d39998679", size = 35822 },
 ]
 
 [[package]]
 name = "cherry-pipelines"
-version = "0.0.5"
+version = "0.0.6"
 source = { editable = "." }
 dependencies = [
     { name = "cherry-core" },
@@ -189,8 +189,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cherry-core", specifier = ">=0.5.7" },
-    { name = "cherry-etl", specifier = ">=0.6.4" },
+    { name = "cherry-core", specifier = ">=0.5.8" },
+    { name = "cherry-etl", specifier = ">=0.6.5" },
     { name = "clickhouse-connect", specifier = ">=0.8.17" },
     { name = "dotenv", specifier = ">=0.9.9" },
     { name = "pyarrow", specifier = ">=20.0.0" },
