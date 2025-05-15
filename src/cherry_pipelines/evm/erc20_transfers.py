@@ -85,8 +85,8 @@ def join_data(
 
 async def make_pipeline(cfg: EvmConfig) -> cc.Pipeline:
     table_name = make_evm_table_name("erc20_transfers", cfg.chain_id)
-    from_block = await db.get_max_block(cfg.client, table_name, "block_number")
-    from_block = max(cfg.from_block, from_block)
+    max_block = await db.get_max_block(cfg.client, table_name, "block_number")
+    from_block = max(cfg.from_block, max_block+1)
     logger.info(f"starting to ingest from block {from_block}")
 
     query = ingest.Query(
