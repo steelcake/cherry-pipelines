@@ -139,7 +139,7 @@ _SQD_EVM_CHAIN_NAME = {
 
 
 def make_evm_provider(
-    provider_kind: ingest.ProviderKind, chain_id: int
+    provider_kind: ingest.ProviderKind, chain_id: int, buffer_size: int
 ) -> ingest.ProviderConfig:
     """Create an evm provider config based on `config.ProviderKind` and `config.chain_id`"""
     url = ""
@@ -151,6 +151,7 @@ def make_evm_provider(
     return ingest.ProviderConfig(
         kind=provider_kind,
         url=url,
+        buffer_size=buffer_size,
     )
 
 
@@ -159,11 +160,12 @@ def make_evm_provider(
 _SQD_SVM_URL = "https://portal.sqd.dev/datasets/solana-beta"
 
 
-def make_svm_provider() -> ingest.ProviderConfig:
+def make_svm_provider(buffer_size: int) -> ingest.ProviderConfig:
     """Create a solana provider config"""
     return ingest.ProviderConfig(
         kind=ingest.ProviderKind.SQD,
         url=_SQD_SVM_URL,
+        buffer_size=buffer_size,
     )
 
 
@@ -201,8 +203,11 @@ async def load_evm_config() -> EvmConfig:
 
     provider_kind = _to_provider_kind(os.environ["CHERRY_EVM_PROVIDER_KIND"])
     chain_id = int(os.environ["CHERRY_EVM_CHAIN_ID"])
+    provider_buffer_size = _to_int_with_default(
+        os.environ.get("CHERRY_PROVIDER_BUFFER_SIZE"), 3
+    )
 
-    provider = make_evm_provider(provider_kind, chain_id)
+    provider = make_evm_provider(provider_kind, chain_id, provider_buffer_size)
     client = await connect_evm()
 
     return EvmConfig(
@@ -218,7 +223,10 @@ async def load_svm_config() -> SvmConfig:
     """Load SVM configuration from environment variables."""
 
     client = await connect_svm()
-    provider = make_svm_provider()
+    provider_buffer_size = _to_int_with_default(
+        os.environ.get("CHERRY_PROVIDER_BUFFER_SIZE"), 3
+    )
+    provider = make_svm_provider(provider_buffer_size)
 
     dataset_start_block = get_solana_start_block()
 
