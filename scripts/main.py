@@ -137,6 +137,8 @@ _SQD_EVM_CHAIN_NAME = {
     999999999: "zora-sepolia",
 }
 
+_DEFAULT_PROVIDER_BUFFER_SIZE = 2
+
 
 def make_evm_provider(
     provider_kind: ingest.ProviderKind, chain_id: int, buffer_size: int
@@ -204,7 +206,7 @@ async def load_evm_config() -> EvmConfig:
     provider_kind = _to_provider_kind(os.environ["CHERRY_EVM_PROVIDER_KIND"])
     chain_id = int(os.environ["CHERRY_EVM_CHAIN_ID"])
     provider_buffer_size = _to_int_with_default(
-        os.environ.get("CHERRY_PROVIDER_BUFFER_SIZE"), 3
+        os.environ.get("CHERRY_PROVIDER_BUFFER_SIZE"), _DEFAULT_PROVIDER_BUFFER_SIZE
     )
 
     provider = make_evm_provider(provider_kind, chain_id, provider_buffer_size)
@@ -224,7 +226,7 @@ async def load_svm_config() -> SvmConfig:
 
     client = await connect_svm()
     provider_buffer_size = _to_int_with_default(
-        os.environ.get("CHERRY_PROVIDER_BUFFER_SIZE"), 3
+        os.environ.get("CHERRY_PROVIDER_BUFFER_SIZE"), _DEFAULT_PROVIDER_BUFFER_SIZE
     )
     provider = make_svm_provider(provider_buffer_size)
 

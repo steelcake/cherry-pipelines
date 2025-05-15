@@ -77,6 +77,15 @@ def join_data(
         polars.col("timestamp"),
     )
     out = transfers.join(blocks, on="block_number")
+    out = out.drop(
+        [
+            "data",
+            "topic0",
+            "topic1",
+            "topic2",
+            "topic3",
+        ]
+    )
 
     out_d = {}
     out_d[table_name] = out
