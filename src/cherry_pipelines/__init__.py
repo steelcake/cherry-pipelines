@@ -1,3 +1,3 @@
-from . import config, db, evm, svm
+from . import config, db, evm
 
-__all__ = ["config", "db", "evm", "svm"]
+__all__ = ["config", "db", "evm"]

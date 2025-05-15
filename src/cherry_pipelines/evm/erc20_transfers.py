@@ -7,10 +7,7 @@ from typing import Dict, Any, cast
 import polars
 
 from cherry_pipelines import db
-from cherry_pipelines.config import (
-    EvmConfig,
-    make_evm_table_name,
-)
+from cherry_pipelines.config import EvmConfig, make_evm_table_name, ChainId
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +81,8 @@ def join_data(
 
 
 async def make_pipeline(cfg: EvmConfig) -> cc.Pipeline:
-    table_name = make_evm_table_name("erc20_transfers", cfg.chain_id)
+    chain_name = ChainId.get_name(chain_id=cfg.chain_id)
+    table_name = make_evm_table_name("transfer_example", chain_name, "transfer_evt")
     from_block = await db.get_max_block(cfg.client, table_name, "block_number")
     from_block = max(cfg.from_block, from_block)
     logger.info(f"starting to ingest from block {from_block}")
@@ -93,6 +91,7 @@ async def make_pipeline(cfg: EvmConfig) -> cc.Pipeline:
         kind=ingest.QueryKind.EVM,
         params=ingest.evm.Query(
             from_block=from_block,
+            to_block=cfg.to_block,
             logs=[
                 ingest.evm.LogRequest(
                     # address=[

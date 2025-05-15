@@ -5,137 +5,13 @@ import os
 from dotenv import load_dotenv
 import asyncio
 from cherry_core import ingest
-from cherry_pipelines.config import EvmConfig, SvmConfig
+from cherry_pipelines.config import EvmConfig, SvmConfig, ChainId
 from typing import Awaitable, Callable, Optional
 import requests
 from cherry_pipelines import evm
 from cherry_etl import config as cc, run_pipeline
 
 logger = logging.getLogger(__name__)
-
-# https://docs.sqd.ai/subsquid-network/reference/networks/
-_SQD_EVM_CHAIN_NAME = {
-    16600: "0g-testnet",
-    2741: "abstract-mainnet",
-    11124: "abstract-testnet",
-    9990: "agung-evm",
-    41455: "aleph-zero-evm-mainnet",
-    42170: "arbitrum-nova",
-    42161: "arbitrum-one",
-    10242: "arthera-mainnet",
-    592: "astar-mainnet",
-    43114: "avalanche-mainnet",
-    43113: "avalanche-testnet",
-    8333: "b3-mainnet",
-    1993: "b3-sepolia",
-    8453: "base-mainnet",
-    84532: "base-sepolia",
-    80084: "berachain-bartio",
-    80094: "berachain-mainnet",
-    56: "binance-mainnet",
-    97: "binance-testnet",
-    355110: "bitfinity-mainnet",
-    355113: "bitfinity-testnet",
-    64668: "bitgert-testnet",
-    964: "bittensor-mainnet-evm",
-    945: "bittensor-testnet-evm",
-    81457: "blast-l2-mainnet",
-    168587773: "blast-sepolia",
-    60808: "bob-mainnet",
-    808813: "bob-sepolia",
-    325000: "camp-network-testnet-v2",
-    7700: "canto",
-    7701: "canto-testnet",
-    44787: "celo-alfajores-testnet",
-    42220: "celo-mainnet",
-    1116: "core-mainnet",
-    4158: "crossfi-mainnet",
-    4157: "crossfi-testnet",
-    7560: "cyber-mainnet",
-    111557560: "cyberconnect-l2-testnet",
-    666666666: "degen-chain",
-    53935: "dfk-chain",
-    2000: "dogechain-mainnet",
-    568: "dogechain-testnet",
-    17000: "ethereum-holesky",
-    1: "ethereum-mainnet",
-    11155111: "ethereum-sepolia",
-    42793: "etherlink-mainnet",
-    128123: "etherlink-testnet",
-    2109: "exosama",
-    250: "fantom-mainnet",
-    4002: "fantom-testnet",
-    14: "flare-mainnet",
-    43521: "formicarium-testnet",
-    1625: "galxe-gravity",
-    88153591557: "gelato-arbitrum-blueberry",
-    100: "gnosis-mainnet",
-    999: "hyperliquid-mainnet",
-    998: "hyperliquid-testnet",
-    13371: "immutable-zkevm-mainnet",
-    13473: "immutable-zkevm-testnet",
-    57073: "ink-mainnet",
-    763373: "ink-sepolia",
-    1998: "kyoto-testnet",
-    59144: "linea-mainnet",
-    42: "ozean-testnet",
-    169: "manta-pacific",
-    3441006: "manta-pacific-sepolia",
-    5000: "mantle-mainnet",
-    5003: "mantle-sepolia",
-    6342: "mega-testnet",
-    4352: "memecore-mainnet",
-    4200: "merlin-mainnet",
-    686868: "merlin-testnet",
-    34443: "mode-mainnet",
-    10143: "monad-testnet",
-    1287: "moonbase-testnet",
-    1284: "moonbeam-mainnet",
-    1285: "moonriver-mainnet",
-    42225: "nakachain",
-    245022926: "neon-devnet",
-    245022934: "neon-mainnet",
-    204: "opbnb-mainnet",
-    5611: "opbnb-testnet",
-    11155420: "optimism-sepolia",
-    3338: "peaq-mainnet",
-    98866: "plume",
-    98864: "plume-devnet",
-    98865: "plume-legacy",
-    98867: "plume-testnet",
-    80002: "polygon-amoy-testnet",
-    137: "polygon-mainnet",
-    2442: "polygon-zkevm-cardona-testnet",
-    1101: "polygon-zkevm-mainnet",
-    31911: "poseidon-testnet",
-    227: "prom-mainnet",
-    157: "puppynet",
-    11155931: "rise-sepolia",
-    534352: "scroll-mainnet",
-    534351: "scroll-sepolia",
-    109: "shibarium",
-    81: "shibuya-testnet",
-    336: "shiden-mainnet",
-    1482601649: "skale-nebula",
-    1868: "soneium-mainnet",
-    1946: "soneium-minato-testnet",
-    57054: "sonic-blaze-testnet",
-    146: "sonic-mainnet",
-    64165: "sonic-testnet",
-    93747: "stratovm-sepolia",
-    5330: "superseed-mainnet",
-    53302: "superseed-sepolia",
-    167000: "taiko-mainnet",
-    5678: "tanssi",
-    130: "unichain-mainnet",
-    1301: "unichain-sepolia",
-    196: "xlayer-mainnet",
-    195: "xlayer-testnet",
-    810180: "zklink-nova-mainnet",
-    300: "zksync-sepolia",
-    7777777: "zora-mainnet",
-    999999999: "zora-sepolia",
-}
 
 
 def make_evm_provider(
@@ -146,7 +22,9 @@ def make_evm_provider(
     if provider_kind == ingest.ProviderKind.HYPERSYNC:
         url = f"https://{chain_id}.hypersync.xyz"
     elif provider_kind == ingest.ProviderKind.SQD:
-        url = f"https://portal.sqd.dev/datasets/{_SQD_EVM_CHAIN_NAME[chain_id]}"
+        url = (
+            f"https://portal.sqd.dev/datasets/{ChainId.get_sqd_name(chain_id=chain_id)}"
+        )
 
     return ingest.ProviderConfig(
         kind=provider_kind,
@@ -201,6 +79,7 @@ async def load_evm_config() -> EvmConfig:
 
     provider_kind = _to_provider_kind(os.environ["CHERRY_EVM_PROVIDER_KIND"])
     chain_id = int(os.environ["CHERRY_EVM_CHAIN_ID"])
+    rpc_provider_url = os.environ["RPC_PROVIDER_URL"]
 
     provider = make_evm_provider(provider_kind, chain_id)
     client = await connect_evm()
@@ -211,6 +90,7 @@ async def load_evm_config() -> EvmConfig:
         provider=provider,
         chain_id=chain_id,
         client=client,
+        rpc_provider_url=rpc_provider_url,
     )
 
 
@@ -255,30 +135,90 @@ async def connect_svm() -> AsyncClient:
 
 _EVM_PIPELINES: dict[str, Callable[[EvmConfig], Awaitable[cc.Pipeline]]] = {
     "erc20_transfers": evm.erc20_transfers.make_pipeline,
+    "circle_usdc_v1_ethereum": lambda cfg: evm.stablecoin_factory.make_pipeline(
+        cfg, "circle_usdc_v1_ethereum"
+    ),
+    "curve_finance_crvusd_ethereum_v1_ethereum": lambda cfg: evm.stablecoin_factory.make_pipeline(
+        cfg, "curve_finance_crvusd_ethereum_v1_ethereum"
+    ),
+    "ethena_usde_v1_ethereum": lambda cfg: evm.stablecoin_factory.make_pipeline(
+        cfg, "ethena_usde_v1_ethereum"
+    ),
+    "first_digital_fdusd_v1_ethereum": lambda cfg: evm.stablecoin_factory.make_pipeline(
+        cfg, "first_digital_fdusd_v1_ethereum"
+    ),
+    "frax_finance_frax_v1_ethereum": lambda cfg: evm.stablecoin_factory.make_pipeline(
+        cfg, "frax_finance_frax_v1_ethereum"
+    ),
+    "liquity_lusd_v1_ethereum": lambda cfg: evm.stablecoin_factory.make_pipeline(
+        cfg, "liquity_lusd_v1_ethereum"
+    ),
+    "maker_dai_v1_ethereum": lambda cfg: evm.stablecoin_factory.make_pipeline(
+        cfg, "maker_dai_v1_ethereum"
+    ),
+    "paxos_usdp_v1_ethereum": lambda cfg: evm.stablecoin_factory.make_pipeline(
+        cfg, "paxos_usdp_v1_ethereum"
+    ),
+    "paypal_pyusd_v1_ethereum": lambda cfg: evm.stablecoin_factory.make_pipeline(
+        cfg, "paypal_pyusd_v1_ethereum"
+    ),
+    "decentralized_usdd_v1_ethereum": lambda cfg: evm.stablecoin_factory.make_pipeline(
+        cfg, "decentralized_usdd_v1_ethereum"
+    ),
+    "trueusd_tusd_v1_ethereum": lambda cfg: evm.stablecoin_factory.make_pipeline(
+        cfg, "trueusd_tusd_v1_ethereum"
+    ),
+    "world_liberty_financial_usd1_v1_ethereum": lambda cfg: evm.stablecoin_factory.make_pipeline(
+        cfg, "world_liberty_financial_usd1_v1_ethereum"
+    ),
 }
 
 _SVM_PIPELINES = {}
 
 
 async def main():
-    load_dotenv()
+    load_dotenv(override=True)
     logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO").upper())
 
     pipeline_kind = os.environ["CHERRY_PIPELINE_KIND"]
-    pipeline_name = os.environ["CHERRY_PIPELINE_NAME"]
+    pipeline_names_str = os.environ["CHERRY_PIPELINE_NAME"].strip("[]")
+    pipeline_names = [name.strip() for name in pipeline_names_str.split(",")]
+    print(f"pipeline_names: {pipeline_names}")
 
-    pipeline = None
     if pipeline_kind == "evm":
         cfg = await load_evm_config()
-        pipeline = await _EVM_PIPELINES[pipeline_name](cfg)
+        if "all" in pipeline_names:
+            # Run all pipelines concurrently
+            pipeline_tasks = [
+                _EVM_PIPELINES[name](cfg) for name in _EVM_PIPELINES.keys()
+            ]
+            pipelines = await asyncio.gather(*pipeline_tasks)
+            # Run all pipelines
+            await asyncio.gather(*(run_pipeline(p) for p in pipelines))
+        else:
+            # Run specified pipelines concurrently
+            pipeline_tasks = [_EVM_PIPELINES[name](cfg) for name in pipeline_names]
+            pipelines = await asyncio.gather(*pipeline_tasks)
+            # Run all pipelines
+            await asyncio.gather(*(run_pipeline(p) for p in pipelines))
     elif pipeline_kind == "svm":
         cfg = await load_svm_config()
-        pipeline = await _SVM_PIPELINES[pipeline_name](cfg)
+        if "all" in pipeline_names:
+            # Run all pipelines concurrently
+            pipeline_tasks = [
+                _SVM_PIPELINES[name](cfg) for name in _SVM_PIPELINES.keys()
+            ]
+            pipelines = await asyncio.gather(*pipeline_tasks)
+            # Run all pipelines
+            await asyncio.gather(*(run_pipeline(p) for p in pipelines))
+        else:
+            # Run specified pipelines concurrently
+            pipeline_tasks = [_SVM_PIPELINES[name](cfg) for name in pipeline_names]
+            pipelines = await asyncio.gather(*pipeline_tasks)
+            # Run all pipelines
+            await asyncio.gather(*(run_pipeline(p) for p in pipelines))
     else:
         raise Exception("unknown CHERRY_PIPELINE_KIND, allowed values are evm and svm.")
-
-    logger.info(f"Running pipeline with config: {pipeline}")
-    await run_pipeline(pipeline)
 
 
 if __name__ == "__main__":
