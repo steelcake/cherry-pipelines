@@ -74,10 +74,6 @@ All svm pipelines use `SQD`.
 
 All evm pipelines are configurable using the `CHERRY_EVM_PROVIDER_KIND` env variable.
 
-## Table definitions
-
-Automatic table creation features of cherry aren't used and table definitions are managed separately. 
-
 ## Materialized Views
 
 Materialized views are defined in SQL files with an accompanying script that deploys them.
