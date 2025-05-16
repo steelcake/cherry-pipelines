@@ -5,7 +5,7 @@ import os
 from dotenv import load_dotenv
 import asyncio
 from cherry_core import ingest
-from cherry_pipelines.config import EvmConfig, SvmConfig, ChainId
+from cherry_pipelines.config import EvmConfig, SvmConfig, SQDChainId, HyperSyncChainId
 from typing import Awaitable, Callable, Optional
 import requests
 from cherry_pipelines import evm
@@ -22,9 +22,7 @@ def make_evm_provider(
     if provider_kind == ingest.ProviderKind.HYPERSYNC:
         url = f"https://{chain_id}.hypersync.xyz"
     elif provider_kind == ingest.ProviderKind.SQD:
-        url = (
-            f"https://portal.sqd.dev/datasets/{ChainId.get_sqd_name(chain_id=chain_id)}"
-        )
+        url = f"https://portal.sqd.dev/datasets/{SQDChainId.get_sqd_name(chain_id=chain_id)}"
 
     return ingest.ProviderConfig(
         kind=provider_kind,
@@ -79,8 +77,11 @@ async def load_evm_config() -> EvmConfig:
 
     provider_kind = _to_provider_kind(os.environ["CHERRY_EVM_PROVIDER_KIND"])
     chain_id = int(os.environ["CHERRY_EVM_CHAIN_ID"])
+    if provider_kind == ingest.ProviderKind.SQD:
+        _ = SQDChainId.get_sqd_name(chain_id=chain_id)
+    elif provider_kind == ingest.ProviderKind.HYPERSYNC:
+        _ = HyperSyncChainId.get_hypersync_name(chain_id=chain_id)
     rpc_provider_url = os.environ["RPC_PROVIDER_URL"]
-
     provider = make_evm_provider(provider_kind, chain_id)
     client = await connect_evm()
 
@@ -177,13 +178,13 @@ _SVM_PIPELINES = {}
 
 
 async def main():
-    load_dotenv(override=True)
+    load_dotenv()
     logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO").upper())
 
     pipeline_kind = os.environ["CHERRY_PIPELINE_KIND"]
     pipeline_names_str = os.environ["CHERRY_PIPELINE_NAME"].strip("[]")
     pipeline_names = [name.strip() for name in pipeline_names_str.split(",")]
-    print(f"pipeline_names: {pipeline_names}")
+    logger.info(f"Starting pipelines: {pipeline_names}")
 
     if pipeline_kind == "evm":
         cfg = await load_evm_config()

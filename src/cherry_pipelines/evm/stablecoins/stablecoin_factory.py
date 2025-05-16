@@ -1,8 +1,8 @@
 import pyarrow as pa
 import polars as pl
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from datetime import datetime, timezone
-import asyncio
+from clickhouse_connect.driver.exceptions import DatabaseError
 
 from cherry_etl import config as cc
 from cherry_etl.pipeline import run_pipeline
@@ -108,52 +108,42 @@ STABLECOIN_LIST = {
 }
 
 
-async def create_protocol_table(
-    cfg: EvmConfig, token_address: str, name: str, slug: str, network: str
-) -> Optional[pa.Table]:
-    table_name = make_evm_table_name(slug, network, "protocol")
-    protocol_table_exist = await cfg.client.query(f"EXISTS TABLE evm.{table_name}")
-    protocol_table_exist = bool(protocol_table_exist.result_rows[0][0])
-    if not protocol_table_exist:
-        protocol_df = pl.DataFrame(
-            {
-                "id": [token_address],
-                "name": [name],
-                "slug": [slug],
-                "schema_version": [SCHEMA_VERSION],
-                "pipelineVersion": [PIPELINE_VERSION],
-                "network": [network],
-                "type": ["stablecoin"],
-            }
-        )
-        return protocol_df.to_arrow()
-    return None
+async def create_row_for_protocol_table(
+    token_address: str, name: str, slug: str, network: str
+) -> pl.DataFrame:
+    protocol_df = pl.DataFrame(
+        {
+            "id": [token_address],
+            "name": [name],
+            "slug": [slug],
+            "schema_version": [SCHEMA_VERSION],
+            "pipelineVersion": [PIPELINE_VERSION],
+            "network": [network],
+            "type": ["stablecoin"],
+        }
+    )
+    return protocol_df
 
 
-async def create_token_table(
-    cfg: EvmConfig, token_address: str, slug: str, network: str
-) -> Optional[pa.Table]:
-    table_name = make_evm_table_name(slug, network, "token")
-    token_table_exist = await cfg.client.query(f"EXISTS TABLE evm.{table_name}")
-    token_table_exist = bool(token_table_exist.result_rows[0][0])
-    if not token_table_exist:
-        address = bytes.fromhex(token_address.strip("0x"))
-        token_metadata = get_token_metadata_as_table(
-            cfg.rpc_provider_url,
-            [token_address],
-        ).to_pydict()
+async def create_row_for_token_table(
+    cfg: EvmConfig, token_address: str
+) -> pl.DataFrame:
+    address = bytes.fromhex(token_address.strip("0x"))
+    token_metadata = get_token_metadata_as_table(
+        cfg.rpc_provider_url,
+        [token_address],
+    ).to_pydict()
 
-        token_df = pl.DataFrame(
-            {
-                "id": token_address,
-                "address": [address],
-                "name": token_metadata["name"][0],
-                "symbol": token_metadata["symbol"][0],
-                "decimal": token_metadata["decimals"][0],
-            }
-        )
-        return token_df.to_arrow()
-    return None
+    token_df = pl.DataFrame(
+        {
+            "id": token_address,
+            "address": [address],
+            "name": token_metadata["name"][0],
+            "symbol": token_metadata["symbol"][0],
+            "decimal": token_metadata["decimals"][0],
+        }
+    )
+    return token_df
 
 
 def transformations(
@@ -172,20 +162,7 @@ def transformations(
     tables = context["tables"]
     current_time = int(datetime.now(timezone.utc).timestamp())
 
-    # Synchronous wrapper for read_table
-    def sync_query() -> pl.DataFrame:
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-        df = loop.run_until_complete(
-            context["con"].client.query_arrow(f"SELECT * FROM evm.{tables['token']}")
-        )
-        return pl.DataFrame(pl.from_arrow(df))
-
-    token_df = sync_query()
-    token_df = token_df.with_columns(pl.col("address").cast(pl.Binary).alias("address"))
+    token_df = context["token_df"]
 
     # Create the transformation
     all_transfers_df = decoded_logs_df.join(token_df, on="address", how="left").select(
@@ -392,25 +369,36 @@ async def pipeline_factory(
     }
     writer = make_writer(cfg.client)
 
-    protocol_arrow = await create_protocol_table(
-        cfg=cfg, token_address=token_address, name=name, slug=slug, network=network
+    protocol_df = await create_row_for_protocol_table(
+        token_address=token_address, name=name, slug=slug, network=network
     )
 
-    token_arrow = await create_token_table(
-        cfg=cfg, token_address=token_address, slug=slug, network=network
-    )
+    token_df = await create_row_for_token_table(cfg=cfg, token_address=token_address)
 
-    created_tables_dict = (
-        {
-            tables["protocol"]: protocol_arrow,
-            tables["token"]: token_arrow,
-        }
-        if protocol_arrow is not None and token_arrow is not None
-        else {}
-    )
+    to_create_dict = {}
+    try:
+        token_exist = await cfg.client.query(
+            f"SELECT CASE WHEN EXISTS (SELECT 1 FROM evm.{network}_tokens WHERE id = '{token_address}') THEN 1 ELSE 0 END AS exists_flag;"
+        )
+        token_exist = bool(token_exist.result_rows[0][0])
+    except DatabaseError:
+        token_exist = False
+    if not token_exist:
+        to_create_dict[f"{network}_tokens"] = token_df.to_arrow()
 
-    data_writer = create_writer(writer)
-    await data_writer.push_data(created_tables_dict)
+    try:
+        protocol_exist = await cfg.client.query(
+            f"SELECT CASE WHEN EXISTS (SELECT 1 FROM evm.protocols WHERE id = '{token_address}' AND network = '{network}') THEN 1 ELSE 0 END AS exists_flag;"
+        )
+        protocol_exist = bool(protocol_exist.result_rows[0][0])
+    except DatabaseError:
+        protocol_exist = False
+    if not protocol_exist:
+        to_create_dict["protocols"] = protocol_df.to_arrow()
+
+    if not token_exist or not protocol_exist:
+        data_writer = create_writer(writer)
+        await data_writer.push_data(to_create_dict)
 
     topic0 = evm_signature_to_topic0(EVENT_SIGNATURE)
 
@@ -497,6 +485,7 @@ async def pipeline_factory(
                 context={
                     "con": writer.config,
                     "tables": tables,
+                    "token_df": token_df,
                 },
             ),
         ),
