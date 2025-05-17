@@ -29,6 +29,7 @@ It takes these parameters as environment variables:
 - `CHERRY_EVM_PROVIDER_KIND`, specify which provider to use when indexing evm chains. Can be `hypersync` or `sqd`. Has no default and is required when indexing evm.
 - `CHERRY_EVM_CHAIN_ID`, specify the chain_id when indexing an evm chain. has no default and is required when indexing evm.
 - `CHERRY_PROVIDER_BUFFER_SIZE`, specify buffering between ingestion - processing - writer. Increasing this parameter might improve performance but can also cause higher memory usage. Defaults to 2.
+- `CHERRY_INIT_DB`, It runs db setup script instead of the pipeline script if this is set to "true". 
 - `CLICKHOUSE_HOST`, defaults to `127.0.0.1`.
 - `CLICKHOUSE_PORT`, defaults to `8123`.
 - `CLICKHOUSE_USER`, defaults to `default`.

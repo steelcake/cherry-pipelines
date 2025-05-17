@@ -6,61 +6,47 @@ import logging
 from typing import Dict, Any, cast
 import polars
 
-from cherry_pipelines import db
-from cherry_pipelines.config import (
+from .. import db
+from ..config import (
     EvmConfig,
     make_evm_table_name,
 )
 
+from .pipeline import EvmPipeline
+
 logger = logging.getLogger(__name__)
 
 
-def make_writer(client: AsyncClient, table_name: str) -> cc.Writer:
-    skip_index = {}
-    skip_index[table_name] = [
-        cc.ClickHouseSkipIndex(
-            name=f"{table_name}_address_index",
-            val="address",
-            type_="bloom_filter(0.01)",
-            granularity=4,
-        ),
-        cc.ClickHouseSkipIndex(
-            name=f"{table_name}_from_index",
-            val="from",
-            type_="bloom_filter(0.01)",
-            granularity=4,
-        ),
-        cc.ClickHouseSkipIndex(
-            name=f"{table_name}_to_index",
-            val="to",
-            type_="bloom_filter(0.01)",
-            granularity=4,
-        ),
-        cc.ClickHouseSkipIndex(
-            name=f"{table_name}_timestamp_index",
-            val="timestamp",
-            type_="minmax",
-            granularity=4,
-        ),
-    ]
+class Pipeline(EvmPipeline):
+    async def make_pipeline(self, cfg: EvmConfig) -> cc.Pipeline:
+        return await make_pipeline(cfg)
 
-    order_by = {}
-    order_by[table_name] = [
-        "block_number",
-        "transaction_index",
-        "log_index",
-    ]
+    async def init_db(self, client: AsyncClient, chain_id: int):
+        await init_db(client, chain_id)
 
-    writer = cc.Writer(
-        kind=cc.WriterKind.CLICKHOUSE,
-        config=cc.ClickHouseWriterConfig(
-            client=client,
-            order_by=order_by,
-            skip_index=skip_index,
-        ),
-    )
 
-    return writer
+_BASE_TABLE_NAME = "erc20_transfers"
+
+
+async def init_db(client: AsyncClient, chain_id: int):
+    table_name = make_evm_table_name(_BASE_TABLE_NAME, chain_id)
+    await client.command(f"""
+CREATE TABLE IF NOT EXISTS {table_name} (
+    block_number UInt64,
+    transaction_index UInt64,
+    log_index UInt64,
+    transaction_hash String,
+    address String,
+    `from` String,
+    `to` String,
+    amount Decimal128(0),
+    timestamp Int64,
+    INDEX ts_idx timestamp TYPE minmax GRANULARITY 4,
+    INDEX from_idx `from` TYPE bloom_filter(0.01) GRANULARITY 4, 
+    INDEX to_idx `to` TYPE bloom_filter(0.01) GRANULARITY 4
+) ENGINE = MergeTree
+ORDER BY block_number; 
+""")
 
 
 def join_data(
@@ -93,9 +79,9 @@ def join_data(
 
 
 async def make_pipeline(cfg: EvmConfig) -> cc.Pipeline:
-    table_name = make_evm_table_name("erc20_transfers", cfg.chain_id)
-    max_block = await db.get_max_block(cfg.client, table_name, "block_number")
-    from_block = max(cfg.from_block, max_block + 1)
+    table_name = make_evm_table_name(_BASE_TABLE_NAME, cfg.chain_id)
+    next_block = await db.get_next_block(cfg.client, table_name, "block_number")
+    from_block = max(cfg.from_block, next_block)
     logger.info(f"starting to ingest from block {from_block}")
 
     query = ingest.Query(
@@ -137,7 +123,13 @@ async def make_pipeline(cfg: EvmConfig) -> cc.Pipeline:
         ),
     )
 
-    writer = make_writer(cfg.client, table_name)
+    writer = cc.Writer(
+        kind=cc.WriterKind.CLICKHOUSE,
+        config=cc.ClickHouseWriterConfig(
+            client=cfg.client,
+            create_tables=False,
+        ),
+    )
 
     pipeline = cc.Pipeline(
         provider=cfg.provider,
