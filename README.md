@@ -76,19 +76,6 @@ All svm pipelines use `SQD`.
 
 All evm pipelines are configurable using the `CHERRY_EVM_PROVIDER_KIND` env variable.
 
-## Materialized Views
-
-Materialized views are defined in SQL files with an accompanying script that deploys them.
-
-## EVM multi-chain structure
-
-The evm pipelines are multi-chain and index multiple blockchains in parallel.
-
-All chains are written to their own tables. For example the table for erc20 transfers would have a table named
-`erc20_chain1` for ethereum and `erc20_chain10` for optimism.
-
-Specify the `CHERRY_EVM_CHAIN_ID` env variable to set the chain you want to index when indexing evm.
-
 ## License
 
 Licensed under either of
