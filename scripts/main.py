@@ -5,11 +5,10 @@ import os
 from dotenv import load_dotenv
 import asyncio
 from cherry_core import ingest
-from cherry_pipelines.config import EvmConfig, SvmConfig
+from cherry_pipelines.config import EVM_CHAIN_NAME, EvmConfig, SvmConfig
 from typing import Optional
 import requests
 from cherry_pipelines import evm
-from cherry_etl import run_pipeline
 
 from cherry_pipelines.evm.pipeline import EvmPipeline
 
@@ -291,34 +290,33 @@ _SVM_PIPELINES = {}
 
 async def main():
     load_dotenv()
-    logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO").upper())
+    logging.basicConfig(level=os.environ.get("PY_LOG", "INFO").upper())
 
     pipeline_kind = os.environ["CHERRY_PIPELINE_KIND"]
     pipeline_name = os.environ["CHERRY_PIPELINE_NAME"]
 
     is_init = os.environ.get("CHERRY_INIT_DB", "") == "true"
 
-    pipeline = None
     if pipeline_kind == "evm":
         pp = _EVM_PIPELINES[pipeline_name]
-        cfg = await load_evm_config()
         if not is_init:
-            pipeline = await pp.make_pipeline(cfg)
-            logger.info(f"Running pipeline with config: {pipeline}")
-            await run_pipeline(pipeline)
+            cfg = await load_evm_config()
+            logger.info(
+                f"Running pipeline {pipeline_name} on {EVM_CHAIN_NAME[cfg.chain_id]}"
+            )
+            await pp.run(cfg)
         else:
             logger.info("Running db init")
-            await pp.init_db(cfg.client, cfg.chain_id)
+            await pp.init_db(await connect_evm())
     elif pipeline_kind == "svm":
         pp = _SVM_PIPELINES[pipeline_name]
-        cfg = await load_svm_config()
         if not is_init:
-            pipeline = await pp.make_pipeline(cfg)
-            logger.info(f"Running pipeline with config: {pipeline}")
-            await run_pipeline(pipeline)
+            logger.info("Running pipeline")
+            cfg = await load_svm_config()
+            await pp.run(cfg)
         else:
             logger.info("Running db init")
-            await pp.init_db(cfg.client)
+            await pp.init_db(await connect_svm())
     else:
         raise Exception("unknown CHERRY_PIPELINE_KIND, allowed values are evm and svm.")
 

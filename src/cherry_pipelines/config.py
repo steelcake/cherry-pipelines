@@ -99,7 +99,3 @@ EVM_CHAIN_NAME = {
     324: "zksync",
     7777777: "zora",
 }
-
-
-def make_evm_table_name(base_name: str, chain_id: int) -> str:
-    return f"{base_name}_{EVM_CHAIN_NAME[chain_id]}"

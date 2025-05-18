@@ -1,15 +1,14 @@
 from clickhouse_connect.driver.asyncclient import AsyncClient
 import pyarrow as pa
-from cherry_etl import config as cc
+from cherry_etl import config as cc, run_pipeline
 from cherry_core import ingest, evm_signature_to_topic0
 import logging
-from typing import Dict, Any, cast
+from typing import Dict, Any
 import polars
 
 from .. import db
 from ..config import (
     EvmConfig,
-    make_evm_table_name,
 )
 
 from .pipeline import EvmPipeline
@@ -18,20 +17,19 @@ logger = logging.getLogger(__name__)
 
 
 class Pipeline(EvmPipeline):
-    async def make_pipeline(self, cfg: EvmConfig) -> cc.Pipeline:
-        return await make_pipeline(cfg)
+    async def run(self, cfg: EvmConfig):
+        await run(cfg)
 
-    async def init_db(self, client: AsyncClient, chain_id: int):
-        await init_db(client, chain_id)
-
-
-_BASE_TABLE_NAME = "erc20_transfers"
+    async def init_db(self, client: AsyncClient):
+        await init_db(client)
 
 
-async def init_db(client: AsyncClient, chain_id: int):
-    table_name = make_evm_table_name(_BASE_TABLE_NAME, chain_id)
+_TABLE_NAME = "erc20_transfers"
+
+
+async def init_db(client: AsyncClient):
     await client.command(f"""
-CREATE TABLE IF NOT EXISTS {table_name} (
+CREATE TABLE IF NOT EXISTS {_TABLE_NAME} (
     block_number UInt64,
     transaction_index UInt64,
     log_index UInt64,
@@ -41,22 +39,19 @@ CREATE TABLE IF NOT EXISTS {table_name} (
     `to` String,
     amount Decimal128(0),
     timestamp Int64,
+    chain_id UInt64,
     INDEX ts_idx timestamp TYPE minmax GRANULARITY 4,
     INDEX from_idx `from` TYPE bloom_filter(0.01) GRANULARITY 4, 
     INDEX to_idx `to` TYPE bloom_filter(0.01) GRANULARITY 4
-) ENGINE = MergeTree
+) ENGINE = MergeTree 
+PARTITION BY chain_id
 ORDER BY block_number; 
 """)
 
 
-def join_data(
-    data: Dict[str, polars.DataFrame], context: Any
-) -> Dict[str, polars.DataFrame]:
-    context = cast(Dict[str, bool], context)
-    table_name = context["table_name"]
-
+def join_data(data: Dict[str, polars.DataFrame], _: Any) -> Dict[str, polars.DataFrame]:
     blocks = data["blocks"]
-    transfers = data[table_name]
+    transfers = data[_TABLE_NAME]
 
     blocks = blocks.select(
         polars.col("number").alias("block_number"),
@@ -74,13 +69,14 @@ def join_data(
     )
 
     out_d = {}
-    out_d[table_name] = out
+    out_d[_TABLE_NAME] = out
     return out_d
 
 
-async def make_pipeline(cfg: EvmConfig) -> cc.Pipeline:
-    table_name = make_evm_table_name(_BASE_TABLE_NAME, cfg.chain_id)
-    next_block = await db.get_next_block(cfg.client, table_name, "block_number")
+async def run(cfg: EvmConfig):
+    next_block = await db.get_next_block(
+        cfg.client, _TABLE_NAME, "block_number", cfg.chain_id
+    )
     from_block = max(cfg.from_block, next_block)
     logger.info(f"starting to ingest from block {from_block}")
 
@@ -90,21 +86,12 @@ async def make_pipeline(cfg: EvmConfig) -> cc.Pipeline:
             from_block=from_block,
             logs=[
                 ingest.evm.LogRequest(
-                    # address=[
-                    #     "0xdAC17F958D2ee523a2206206994597C13D831ec7",  # USDT
-                    #     "0xB8c77482e45F1F44dE1745F52C74426C631bDD52",  # BNB
-                    #     "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",  # USDC
-                    #     "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84",  # stETH
-                    #     "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",  # Wrapped BTC
-                    #     "0x582d872A1B094FC48F5DE31D3B73F2D9bE47def1",  # Wrapped TON coin
-                    # ],
                     topic0=[
                         evm_signature_to_topic0("Transfer(address,address,uint256)")
                     ],
                     include_blocks=True,
                 )
             ],
-            # select the fields we want
             fields=ingest.evm.Fields(
                 block=ingest.evm.BlockFields(number=True, timestamp=True),
                 log=ingest.evm.LogFields(
@@ -140,7 +127,7 @@ async def make_pipeline(cfg: EvmConfig) -> cc.Pipeline:
                 kind=cc.StepKind.EVM_DECODE_EVENTS,
                 config=cc.EvmDecodeEventsConfig(
                     event_signature="Transfer(address indexed from, address indexed to, uint256 amount)",
-                    output_table=table_name,
+                    output_table=_TABLE_NAME,
                     # Write null if decoding fails instead of erroring out.
                     #
                     # This is needed if we are trying to decode all logs that match our topic0 without
@@ -162,17 +149,20 @@ async def make_pipeline(cfg: EvmConfig) -> cc.Pipeline:
                 kind=cc.StepKind.CUSTOM,
                 config=cc.CustomStepConfig(
                     runner=join_data,
-                    context={"table_name": table_name},
                 ),
             ),
             cc.Step(
                 kind=cc.StepKind.CAST,
                 config=cc.CastConfig(
-                    table_name=table_name,
+                    table_name=_TABLE_NAME,
                     mappings={"timestamp": pa.int64()},
                 ),
+            ),
+            cc.Step(
+                kind=cc.StepKind.SET_CHAIN_ID,
+                config=cc.SetChainIdConfig(chain_id=cfg.chain_id),
             ),
         ],
     )
 
-    return pipeline
+    await run_pipeline(pipeline=pipeline, pipeline_name=_TABLE_NAME)

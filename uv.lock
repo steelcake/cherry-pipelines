@@ -148,7 +148,7 @@ wheels = [
 
 [[package]]
 name = "cherry-etl"
-version = "0.6.7"
+version = "0.6.10"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cherry-core" },
@@ -163,14 +163,14 @@ dependencies = [
     { name = "pyiceberg" },
     { name = "sqlalchemy" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/2d/09/67de6d7ba0f594cc02d53e2061785d190c9a46783b458fd23e43f5c245e5/cherry_etl-0.6.7.tar.gz", hash = "sha256:c8325937014ab80de92f53145eb7d93cd0fe147e66ca93bc46cc0ed0cc43b023", size = 53800 }
+sdist = { url = "https://files.pythonhosted.org/packages/94/36/27b86edf0f6f17a3d739eec8a8b6894fec60e42e000e4fa1dd8e271e4476/cherry_etl-0.6.10.tar.gz", hash = "sha256:a6691a5f09f8262e358660e6548d8e04080eab468ddebf0ae2d35bbae91e8580", size = 54011 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/60/a0/2e9cc7f7a54d68a1685bf3fe9b04fb9d9c98e70a39184d8583de5f3a8027/cherry_etl-0.6.7-py3-none-any.whl", hash = "sha256:f816e29720f29260c4292330a05d777ad96bb4a54678fad4113bf752cbce8c21", size = 36164 },
+    { url = "https://files.pythonhosted.org/packages/f6/ae/b9863c567445c98de6bde1dad00f600a976f24fad70a8f12b5f4cd138c52/cherry_etl-0.6.10-py3-none-any.whl", hash = "sha256:c56c511133d79bad0acef1fcbc236224829d26b017fd0004df78192802928971", size = 36593 },
 ]
 
 [[package]]
 name = "cherry-pipelines"
-version = "0.0.9"
+version = "0.0.10"
 source = { editable = "." }
 dependencies = [
     { name = "cherry-core" },
@@ -190,7 +190,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "cherry-core", specifier = ">=0.5.10" },
-    { name = "cherry-etl", specifier = ">=0.6.7" },
+    { name = "cherry-etl", specifier = ">=0.6.10" },
     { name = "clickhouse-connect", specifier = ">=0.8.17" },
     { name = "dotenv", specifier = ">=0.9.9" },
     { name = "pyarrow", specifier = ">=20.0.0" },
