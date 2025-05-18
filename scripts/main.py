@@ -283,6 +283,8 @@ async def connect_svm() -> AsyncClient:
 
 _EVM_PIPELINES: dict[str, EvmPipeline] = {
     "erc20_transfers": evm.erc20_transfers.Pipeline(),
+    "chain_name": evm.chain_name.Pipeline(),
+    "chain_id": evm.chain_id.Pipeline(),
 }
 
 _SVM_PIPELINES = {}
