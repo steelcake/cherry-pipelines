@@ -11,7 +11,7 @@ async def get_next_block(
     """Gets next block to ingest based on max block number stored in the database."""
     try:
         query = f"SELECT MAX({column_name}) FROM {table_name}"
-        if chain_id is None:
+        if chain_id is not None:
             query += f" WHERE chain_id = {chain_id}"
         res = await client.query(query)
         max_block = int(res.result_rows[0][0] or 0)
