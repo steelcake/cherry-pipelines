@@ -267,8 +267,6 @@ def process_data(data: Dict[str, pl.DataFrame], _: Any) -> Dict[str, pl.DataFram
         )
     )
 
-    logger.warning(f"A: {swaps.height}")
-
     transfers = transfers.select(
         pl.col("block_slot"),
         pl.col("transaction_index"),
@@ -277,38 +275,30 @@ def process_data(data: Dict[str, pl.DataFrame], _: Any) -> Dict[str, pl.DataFram
         pl.col("instruction_address").list.reverse().list.slice(1).list.reverse(),
     )
 
-    logger.warning(f"B: {transfers.height}")
-
     output_transfers = transfers.filter(pl.col("last_addr").eq(1)).select(
         pl.col("block_slot"),
         pl.col("transaction_index"),
         pl.col("instruction_address"),
         pl.col("amount").alias("output_amount"),
     )
-    logger.warning(f"C: {output_transfers.height}")
     input_transfers = transfers.filter(pl.col("last_addr").eq(0)).select(
         pl.col("block_slot"),
         pl.col("transaction_index"),
         pl.col("instruction_address"),
         pl.col("amount").alias("input_amount"),
     )
-    logger.warning(f"D: {input_transfers.height}")
 
     swaps = swaps.join(
         output_transfers, on=["block_slot", "transaction_index", "instruction_address"]
     )
-    logger.warning(f"E: {swaps.height}")
 
     swaps = swaps.join(
         input_transfers, on=["block_slot", "transaction_index", "instruction_address"]
     )
-    logger.warning(f"F: {swaps.height}")
 
     swaps = swaps.join(transactions, on=["block_slot", "transaction_index"])
-    logger.warning(f"G: {swaps.height}")
 
     swaps = swaps.join(blocks, on="block_slot")
-    logger.warning(f"H: {swaps.height}")
 
     out = {}
     out[_TABLE_NAME] = swaps
