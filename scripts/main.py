@@ -8,7 +8,7 @@ from cherry_core import ingest
 from cherry_pipelines.config import EVM_CHAIN_NAME, EvmConfig, SvmConfig
 from typing import Optional
 import requests
-from cherry_pipelines import evm
+from cherry_pipelines import evm, svm
 
 from cherry_pipelines.evm.pipeline import EvmPipeline
 
@@ -287,7 +287,9 @@ _EVM_PIPELINES: dict[str, EvmPipeline] = {
     "chain_id": evm.chain_id.Pipeline(),
 }
 
-_SVM_PIPELINES = {}
+_SVM_PIPELINES = {
+    "orca_swaps": svm.orca_swaps.Pipeline(),
+}
 
 
 async def main():

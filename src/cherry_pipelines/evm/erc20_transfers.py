@@ -31,6 +31,7 @@ async def init_db(client: AsyncClient):
     await client.command(f"""
 CREATE TABLE IF NOT EXISTS {_TABLE_NAME} (
     block_number UInt64,
+    block_hash String,
     transaction_index UInt64,
     log_index UInt64,
     transaction_hash String,
@@ -84,6 +85,7 @@ async def run(cfg: EvmConfig):
         kind=ingest.QueryKind.EVM,
         params=ingest.evm.Query(
             from_block=from_block,
+            to_block=cfg.to_block,
             logs=[
                 ingest.evm.LogRequest(
                     topic0=[
@@ -96,6 +98,7 @@ async def run(cfg: EvmConfig):
                 block=ingest.evm.BlockFields(number=True, timestamp=True),
                 log=ingest.evm.LogFields(
                     block_number=True,
+                    block_hash=True,
                     transaction_index=True,
                     transaction_hash=True,
                     log_index=True,
