@@ -143,7 +143,7 @@ _INSTRUCTION_SIGNATURE = InstructionSignature(
         "token_owner_account_a",
         "token_vault_a",
         "token_owner_account_b",
-        # "token_vault_b",
+        "token_vault_b",
     ],
 )
 
@@ -165,10 +165,13 @@ CREATE TABLE IF NOT EXISTS {_TABLE_NAME} (
     input_token_account String,
     output_token_account String,
     input_mint String,
+    input_vault String,
     input_amount UInt64,
     output_mint String,
+    output_vault String,
     output_amount UInt64,
     amount UInt64,
+    amount_specified_is_input Boolean,
     other_amount_threshold UInt64,
     sqrt_price_limit Decimal128(0),
     timestamp Int64,
@@ -180,7 +183,9 @@ CREATE TABLE IF NOT EXISTS {_TABLE_NAME} (
     INDEX output_token_account_idx `output_token_account` TYPE bloom_filter(0.01) GRANULARITY 4,
     INDEX wirlpool_idx `whirlpool` TYPE bloom_filter(0.01) GRANULARITY 4,
     INDEX input_mint_idx `input_mint` TYPE bloom_filter(0.01) GRANULARITY 4,
-    INDEX output_mint_idx `output_mint` TYPE bloom_filter(0.01) GRANULARITY 4
+    INDEX output_mint_idx `output_mint` TYPE bloom_filter(0.01) GRANULARITY 4,
+    INDEX input_vault_idx `input_vault` TYPE bloom_filter(0.01) GRANULARITY 4,
+    INDEX output_vault_idx `output_vault` TYPE bloom_filter(0.01) GRANULARITY 4
 ) ENGINE = MergeTree 
 ORDER BY (block_slot, transaction_index, instruction_address); 
 """)
@@ -220,9 +225,12 @@ def select_swaps_df(swaps: pl.DataFrame) -> pl.DataFrame:
         "output_token_account",
         "input_mint",
         "output_mint",
+        "input_vault",
+        "output_vault",
         "amount",
         "other_amount_threshold",
         "sqrt_price_limit",
+        "amount_specified_is_input",
     )
 
 
@@ -252,6 +260,8 @@ def process_data(data: Dict[str, pl.DataFrame], _: Any) -> Dict[str, pl.DataFram
                 "token_mint_b": "output_mint",
                 "token_owner_account_a": "input_token_account",
                 "token_owner_account_b": "output_token_account",
+                "token_vault_a": "input_vault",
+                "token_vault_b": "output_vault",
             }
         )
     ).vstack(
@@ -262,6 +272,8 @@ def process_data(data: Dict[str, pl.DataFrame], _: Any) -> Dict[str, pl.DataFram
                     "token_mint_b": "input_mint",
                     "token_owner_account_a": "output_token_account",
                     "token_owner_account_b": "input_token_account",
+                    "token_vault_a": "output_vault",
+                    "token_vault_b": "input_vault",
                 }
             )
         )
@@ -353,6 +365,7 @@ async def run(cfg: SvmConfig):
                     transaction_index=True,
                     instruction_address=True,
                     program_id=True,
+                    rest_of_accounts=True,
                 ),
             ),
         ),
@@ -383,7 +396,6 @@ async def run(cfg: SvmConfig):
                     instruction_signature=_INSTRUCTION_SIGNATURE,
                     input_table="swaps",
                     output_table="swaps",
-                    allow_decode_fail=True,
                 ),
             ),
             cc.Step(
