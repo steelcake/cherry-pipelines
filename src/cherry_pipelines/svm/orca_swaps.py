@@ -255,7 +255,9 @@ def split_instructions(
 
     instructions = data["instructions"]
 
-    instructions = instructions.sort(pl.col("instruction_address"))
+    instructions = instructions.sort(
+        ["block_slot", "transaction_index", "instruction_address"]
+    )
 
     instructions = instructions.filter(
         pl.col("program_id").ne(base58_decode_string(_MEMO_PROGRAM_ID_V1))
