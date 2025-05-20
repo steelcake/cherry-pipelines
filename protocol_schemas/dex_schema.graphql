@@ -1,0 +1,324 @@
+interface Protocol {
+  " Smart contract address of the protocol's main contract (Factory, Registry, etc) "
+  id: ID!
+
+  " Name of the protocol, including version. e.g. Uniswap v3 "
+  name: String!
+
+  " Slug of protocol, including version. e.g. uniswap-v3 "
+  slug: String!
+
+  " Version of the subgraph schema, in SemVer format (e.g. 1.0.0) "
+  schemaVersion: String!
+
+  " Version of the pipeline implementation, in SemVer format (e.g. 1.0.0) "
+  pipelineVersion: String!
+
+  " The blockchain network this subgraph is indexing on "
+  network: NetworkID!
+
+  " The type of protocol (e.g. DEX, Lending, Yield, etc) "
+  type: ProtocolType!
+
+}
+
+type LiquidityPool {
+" Smart contract address of the pool "
+id: Address
+
+" The protocol this pool belongs to "
+protocol: DexAmmProtocol!
+
+" Name of liquidity pool (e.g. [Curve.fi](http://curve.fi/) DAI/USDC/USDT) "
+name: String
+
+" Symbol of liquidity pool (e.g. 3CRV) "
+symbol: String
+
+" Tokens that need to be deposited to take a position in protocol. e.g. WETH and USDC to deposit into the WETH-USDC pool. Array to account for multi-asset pools like Curve and Balancer "
+inputTokens: [TokenID]!
+
+" Token that is minted to track ownership of position in protocol "
+outputToken: Token
+
+" Creation timestamp "
+createdTimestamp: BigInt!
+
+" Creation block number "
+createdBlockNumber: BigInt!
+
+" Pipeline or transformation execution timestamp "
+exe_timestamp_utc: BigInt!
+}
+
+type Swap  {
+  " swap-{ Transaction hash }-{ Log index } "
+  id: ID!
+
+  " Transaction hash of the transaction that emitted this event "
+  Txhash: Hash!
+
+  " Transaction index inside the block "
+  TxIndex: Int!
+
+  " Event log index. For transactions that don't emit event, create arbitrary index starting from 0 "
+  logIndex: Int!
+
+  " The protocol this events belongs to "
+  protocol: DexAmmProtocol!
+
+ " Address that sended the transaction in which this Swap happened"
+  tx_from: Address
+
+  " Address that received the tokens "
+  to: Address!
+
+  " Address that sent the tokens "
+  from: Address!
+
+  " Block number of this event "
+  blockNumber: BigInt!
+
+  " Timestamp of this event "
+  timestamp: BigInt!
+
+  " Token deposited into pool "
+  tokenIn: Token!
+
+  " Amount of token deposited into pool in native units "
+  amountInRaw: BigInt!
+
+  " Amount of token deposited into pool in native units with decimals"
+  amountIn: BigDecimal!
+
+  " Amount of token deposited into pool in USD "
+  amountInUSD: BigDecimal!
+
+  " Token withdrawn from pool "
+  tokenOut: Token!
+
+  " Amount of token withdrawn from pool in native units "
+  amountOutRaw: BigInt!
+
+  " Amount of token deposiwithdrawnted into pool in native units with decimals"
+  amountOut: BigDecimal!
+
+  " Amount of token withdrawn from pool in USD "
+  amountOutUSD: BigDecimal!
+
+  " Amount of input tokens in the liquidity pool (raw)"
+  reserveAmounts: [BigInt!]
+
+  " The pool involving this event "
+  pool: LiquidityPool!
+
+ " Pipeline or transformation execution timestamp "
+ exe_timestamp_utc: BigInt!
+}
+
+type Deposit {
+  " deposit-{ Transaction hash }-{ Log index } "
+  id: ID!
+
+  " Transaction hash of the transaction that emitted this event "
+  Txhash: Hash!
+
+  " Transaction index inside the block "
+  TxIndex: Int!
+  
+  " Event log index. For transactions that don't emit event, create arbitrary index starting from 0 "
+  logIndex: Int!
+
+  " The protocol this events belongs to "
+  protocol: DexAmmProtocol!
+  
+  " Address that sended the transaction in which this Deposit happened "
+  tx_from: Address
+
+  " Address that received the tokens "
+  to: Address
+
+  " Address that sent the tokens "
+  from: Address
+
+  " Block number of this event "
+  blockNumber: BigInt!
+
+  " Timestamp of this event "
+  timestamp: BigInt!
+
+  " Input tokens of the pool. E.g. WETH and USDC to a WETH-USDC pool. ie.: [USDC, WETH]"
+  inputTokens: [TokenID]!
+
+  " Output token of the pool. E.g. the UNI-LP token "
+  outputToken: TokenID
+
+  " Amount of input tokens in the token's raw native unitie.: [10_000, 5] "
+  inputTokenAmounts: [BigInt!]!
+
+  " Amount of output tokens in the token's native unit "
+  outputTokenAmount: BigInt
+
+  " Amount of raw input tokens in the liquidity pool (TVL). ie.: [100_000, 50] "
+  reserveAmounts: [BigInt!]
+
+  " USD-normalized value of the transaction of the underlying (e.g. sum of tokens deposited into a pool) "
+  amountUSD: BigDecimal!
+
+  " The pool involving this event "
+  pool: LiquidityPoolID
+
+  " Pipeline or transformation execution timestamp "
+  exe_timestamp_utc: BigInt!
+}
+
+type Withdraw @entity(immutable: true) @transaction {
+  " withdraw-{ Transaction hash }-{ Log index }"
+  id: ID!
+
+  " Transaction hash of the transaction that emitted this event "
+  Txhash: Hash!
+
+  " Transaction index inside the block "
+  TxIndex: Int!
+
+  " Event log index. For transactions that don't emit event, create arbitrary index starting from 0 "
+  logIndex: Int!
+
+  " The protocol this events belongs to "
+  protocol: DexAmmProtocol!
+
+  " Address that sended the transaction in which this Withdraw happened "
+  tx_from: Address
+
+  " Address that received the tokens "
+  to: Address
+
+  " Address that sent the tokens "
+  from: Address
+
+  " Block number of this event "
+  blockNumber: BigInt!
+
+  " Timestamp of this event "
+  timestamp: BigInt!
+
+  " Input tokens of the pool (not input tokens of the event/transaction). E.g. WETH and USDC from a WETH-USDC pool. ie.: [USDC, WETH] "
+  inputTokens: [TokenID]!
+
+  " Output token of the pool (not output token of the event/transaction). E.g. the UNI-LP token "
+  outputToken: TokenID
+
+  " Amount of input tokens in the token's raw native unit.: [-10_000, -5] "
+  inputTokenAmounts: [BigInt!]!
+
+  " Amount of output tokens in the token's raw native unit "
+  outputTokenAmount: BigInt
+
+  " Amount of raw input tokens in the liquidity pool (TVL). ie.: [100_000, 50]"
+  reserveAmounts: [BigInt!]
+
+  " USD-normalized value of the transaction of the underlying (e.g. sum of tokens withdrawn from a pool) "
+  amountUSD: BigDecimal!
+
+  " The pool involving this event "
+  pool: LiquidityPoolID
+
+  " Pipeline or transformation execution timestamp "
+  exe_timestamp_utc: BigInt!
+}
+
+type Interaction {
+  " ID of the above event "
+  id: event_ID!
+
+ " Address that sended the transaction in which this interaction happened"
+  tx_from: Address
+
+  " Address that received the tokens "
+  to: Address
+
+  " Address that sent the tokens "
+  from: Address
+
+  " The pool involving this event "
+  pool: LiquidityPool!
+
+  " The protocol this events belongs to "
+  protocol: DexAmmProtocol!
+
+  " Which type of interaction is this "
+   type: Enum (DEX_DEPOSIT, DEX_WITHDRAW, DEX_SWAP)
+  
+  " Block number of this event "
+  blockNumber: BigInt!
+
+  " Transaction hash of the transaction that emitted this event "
+  Txhash: Hash!
+
+  " Transaction index inside the block "
+  TxIndex: Int!
+
+  " Event log index. For transactions that don't emit event, create arbitrary index starting from 0 "
+  logIndex: Int!
+
+  " Timestamp of this event "
+  timestamp: BigInt!
+  
+  " Pipeline or transformation execution timestamp "
+  exe_timestamp_utc: BigInt!
+}
+
+type Fees {
+  " ID of the event in which this revenue was accrued "
+  id: event_ID!
+  
+  " Which type of fee is this "
+   type: Enum (PROTOCOL_FEE, LP_FEE, OTHER)
+
+ " Address that sended the transaction in which this event happened"
+  tx_from: Address
+
+  " Address that received the tokens of the event "
+  to: Address
+
+  " Address that sent the tokens of the event "
+  from: Address
+
+  " The pool involving this event "
+  pool: LiquidityPool!
+
+  " The protocol this events belongs to "
+  protocol: DexAmmProtocol!
+
+  " Tokens in which the fee was accrued. E.g. WETH and USDC from a deposit. ie.: [USDC, WETH]"
+  feeTokens: [TokenID]!
+
+  " Fee amounts in the token's raw native unitie.: [10, 5] "
+  feeAmounts: [BigInt!]!
+
+  " USD-normalized value of the fees "
+  feeUSD: BigDecimal!
+
+  " Which type of interaction is this "
+   type: Enum (DEX_DEPOSIT, DEX_WITHDRAW, DEX_SWAP)
+  
+  " Block number of this event "
+  blockNumber: BigInt!
+
+  " Transaction hash of the transaction that emitted this event "
+  Txhash: Hash!
+
+  " Transaction index inside the block "
+  TxIndex: Int!
+
+  " Event log index. For transactions that don't emit event, create arbitrary index starting from 0 "
+  logIndex: Int!
+
+  " Timestamp of this event "
+  timestamp: BigInt!
+  
+  " Pipeline or transformation execution timestamp "
+  exe_timestamp_utc: BigInt!
+}
+

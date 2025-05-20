@@ -14,6 +14,7 @@ class EvmConfig:
     to_block: Optional[int]
     chain_id: int
     client: AsyncClient
+    rpc_provider_url: str
 
 
 @dataclass
@@ -99,3 +100,6 @@ EVM_CHAIN_NAME = {
     324: "zksync",
     7777777: "zora",
 }
+
+def make_evm_table_name(slug: str, network: str, table: str) -> str:
+    return f"{slug}_{network}_{table}"

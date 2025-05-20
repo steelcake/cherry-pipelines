@@ -223,6 +223,7 @@ async def load_evm_config() -> EvmConfig:
 
     provider_kind = _to_provider_kind(os.environ["CHERRY_EVM_PROVIDER_KIND"])
     chain_id = int(os.environ["CHERRY_EVM_CHAIN_ID"])
+    rpc_provider_url = os.environ["RPC_PROVIDER_URL"]
     provider_buffer_size = _to_int_with_default(
         os.environ.get("CHERRY_PROVIDER_BUFFER_SIZE"), _DEFAULT_PROVIDER_BUFFER_SIZE
     )
@@ -236,6 +237,7 @@ async def load_evm_config() -> EvmConfig:
         provider=provider,
         chain_id=chain_id,
         client=client,
+        rpc_provider_url=rpc_provider_url,
     )
 
 
@@ -285,6 +287,7 @@ _EVM_PIPELINES: dict[str, EvmPipeline] = {
     "erc20_transfers": evm.erc20_transfers.Pipeline(),
     "chain_name": evm.chain_name.Pipeline(),
     "chain_id": evm.chain_id.Pipeline(),
+    "uniswap_v2_ethereum": evm.uniswap_v2_forks.Pipeline(),
 }
 
 _SVM_PIPELINES = {
@@ -293,7 +296,7 @@ _SVM_PIPELINES = {
 
 
 async def main():
-    load_dotenv()
+    load_dotenv(override=True)
     logging.basicConfig(level=os.environ.get("PY_LOG", "INFO").upper())
 
     pipeline_kind = os.environ["CHERRY_PIPELINE_KIND"]
@@ -303,15 +306,14 @@ async def main():
 
     if pipeline_kind == "evm":
         pp = _EVM_PIPELINES[pipeline_name]
-        if not is_init:
-            cfg = await load_evm_config()
-            logger.info(
-                f"Running pipeline {pipeline_name} on {EVM_CHAIN_NAME[cfg.chain_id]}"
-            )
-            await pp.run(cfg)
-        else:
+        if is_init:
             logger.info("Running db init")
-            await pp.init_db(await connect_evm())
+            await pp.init_db(await connect_evm(), pipeline_name)
+        cfg = await load_evm_config()
+        logger.info(
+            f"Running pipeline {pipeline_name} on {EVM_CHAIN_NAME[cfg.chain_id]}"
+        )
+        await pp.run(cfg, pipeline_name)
     elif pipeline_kind == "svm":
         pp = _SVM_PIPELINES[pipeline_name]
         if not is_init:
