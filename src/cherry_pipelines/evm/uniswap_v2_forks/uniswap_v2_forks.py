@@ -132,12 +132,13 @@ def data_transformations(
     new_tokens_list = transformations.get_new_tokens(
         pair_created_logs_df, persistent_token_df
     )
-    new_tokens_df = transformations.get_token_df(
-        cfg=cfg,
-        token_address=new_tokens_list,
-    )
-    persistent_token_df.vstack(new_tokens_df, in_place=True)
-    output_dict[tables["token"]] = new_tokens_df
+    if len(new_tokens_list) > 0:
+        new_tokens_df = transformations.get_token_df(
+            cfg=cfg,
+            token_address=new_tokens_list,
+        )
+        persistent_token_df.vstack(new_tokens_df, in_place=True)
+        output_dict[tables["token"]] = new_tokens_df
 
     liquidity_pool_df = transformations.get_liquidity_pool_df(
         pair_created_logs_df, persistent_token_df, factory_address, protocol_name

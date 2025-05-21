@@ -36,10 +36,9 @@ def get_token_df(cfg: EvmConfig, token_address: List[str]) -> pl.DataFrame:
     empty_df = pl.DataFrame(
         schema={
             "address": pl.Binary(),
-            "name": pl.String(),
-            "symbol": pl.String(),
             "decimals": pl.UInt8(),
-            "exe_timestamp_utc": pl.Int64(),
+            "symbol": pl.String(),
+            "name": pl.String(),
         }
     )
     for i in range(0, len(token_address), chunk_size):
@@ -63,6 +62,8 @@ def get_token_df(cfg: EvmConfig, token_address: List[str]) -> pl.DataFrame:
             chunks_dfs,
             how="vertical",
         )
+    elif len(chunks_dfs) == 1:
+        token_df = chunks_dfs[0]
     else:
         token_df = empty_df
 
