@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from cherry_pipelines.config import EvmConfig
 from cherry_core import get_token_metadata_as_table
 
+
 def get_protocol_df(
     address: str,
     name: str,
@@ -34,6 +35,8 @@ def get_token_df(cfg: EvmConfig, token_address: List[str]) -> pl.DataFrame:
     )
 
     token_df = pl.from_arrow(token_metadata)
+    assert isinstance(token_df, pl.DataFrame), "token_df must be a DataFrame"
+
     token_df = token_df.select(
         pl.concat_str(
             pl.lit("0x"), pl.col("address").bin.encode("hex").str.to_lowercase()

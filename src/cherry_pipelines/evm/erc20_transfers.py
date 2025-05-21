@@ -3,7 +3,7 @@ import pyarrow as pa
 from cherry_etl import config as cc, run_pipeline
 from cherry_core import ingest, evm_signature_to_topic0
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import polars
 
 from .. import db
@@ -17,10 +17,12 @@ logger = logging.getLogger(__name__)
 
 
 class Pipeline(EvmPipeline):
-    async def run(self, cfg: EvmConfig):
+    async def run(self, cfg: EvmConfig, pipeline_name: Optional[str] = None):
+        _ = pipeline_name
         await run(cfg)
 
-    async def init_db(self, client: AsyncClient):
+    async def init_db(self, client: AsyncClient, pipeline_name: Optional[str] = None):
+        _ = pipeline_name
         await init_db(client)
 
 

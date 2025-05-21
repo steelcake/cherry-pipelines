@@ -1,7 +1,7 @@
 import pyarrow as pa
 import polars as pl
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from clickhouse_connect.driver.exceptions import DatabaseError
 from clickhouse_connect.driver.asyncclient import AsyncClient
 
@@ -33,11 +33,20 @@ from . import initdb
 
 logger = logging.getLogger(__name__)
 
+
 class Pipeline(EvmPipeline):
-    async def run(self, cfg: EvmConfig, pipeline_name: str):
+    async def run(self, cfg: EvmConfig, pipeline_name: Optional[str] = None):
+        if pipeline_name is None:
+            raise ValueError(
+                "For uniswap_v2_forks pipelines, pipeline_name is required"
+            )
         await run(cfg, pipeline_name)
 
-    async def init_db(self, client: AsyncClient, pipeline_name: str):
+    async def init_db(self, client: AsyncClient, pipeline_name: Optional[str] = None):
+        if pipeline_name is None:
+            raise ValueError(
+                "For uniswap_v2_forks pipelines, pipeline_name is required"
+            )
         slug = UNISWAP_V2_FORK_LIST[pipeline_name][2]
         network = UNISWAP_V2_FORK_LIST[pipeline_name][1]
         await initdb.init_db(client, pipeline_name, slug, network)
@@ -184,7 +193,7 @@ def data_transformations(
     return output_dict
 
 
-async def run(cfg: EvmConfig, pipeline_name: str) -> cc.Pipeline:
+async def run(cfg: EvmConfig, pipeline_name: str):
     try:
         name = UNISWAP_V2_FORK_LIST[pipeline_name][0]
         network = UNISWAP_V2_FORK_LIST[pipeline_name][1]
@@ -193,8 +202,8 @@ async def run(cfg: EvmConfig, pipeline_name: str) -> cc.Pipeline:
         deployment_block = UNISWAP_V2_FORK_LIST[pipeline_name][4]
     except KeyError:
         raise ValueError(f"Pipeline name {pipeline_name} not found in stablecoin list")
-
-    return await pipeline_factory(cfg, name, network, slug, address, deployment_block)
+    await pipeline_factory(cfg, name, network, slug, address, deployment_block)
+    return
 
 
 async def pipeline_factory(
@@ -232,9 +241,14 @@ async def pipeline_factory(
 
     if not protocol_exist:
         protocol_df = transformations.get_protocol_df(
-            address=address, name=name, slug=slug, network=network, schema_version=SCHEMA_VERSION, pipeline_version=PIPELINE_VERSION
+            address=address,
+            name=name,
+            slug=slug,
+            network=network,
+            schema_version=SCHEMA_VERSION,
+            pipeline_version=PIPELINE_VERSION,
         )
-        data_writer = create_writer(writer)        
+        data_writer = create_writer(writer)
         await data_writer.push_data({"protocols": protocol_df.to_arrow()})
 
     pair_created_topic0 = evm_signature_to_topic0(PAIR_CREATED_EVENT_SIGNATURE)
@@ -261,7 +275,9 @@ async def pipeline_factory(
 
     to_block = cfg.to_block
     if to_block is not None and to_block <= from_block:
-        logger.info(f"The 'to_block' {to_block} is less than the 'from_block' {from_block}, skipping pipeline")
+        logger.info(
+            f"The 'to_block' {to_block} is less than the 'from_block' {from_block}, skipping pipeline"
+        )
         return
 
     logger.info(f"Starting pipeline from block: {from_block}, to block: {cfg.to_block}")
@@ -426,4 +442,4 @@ async def pipeline_factory(
     )
     await run_pipeline(pipeline_name="uniswap_v2_forks", pipeline=pipeline)
 
-    return pipeline
+    return
