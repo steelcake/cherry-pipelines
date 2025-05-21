@@ -288,6 +288,7 @@ _EVM_PIPELINES: dict[str, EvmPipeline] = {
     "chain_name": evm.chain_name.Pipeline(),
     "chain_id": evm.chain_id.Pipeline(),
     "uniswap_v2_ethereum": evm.uniswap_v2_forks.Pipeline(),
+    "sushiswap_ethereum": evm.uniswap_v2_forks.Pipeline(),
 }
 
 _SVM_PIPELINES = {
