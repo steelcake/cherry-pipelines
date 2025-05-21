@@ -289,6 +289,7 @@ _EVM_PIPELINES: dict[str, EvmPipeline] = {
 
 _SVM_PIPELINES = {
     "orca_swaps": svm.orca_swaps.Pipeline(),
+    "orca_metadata": svm.orca_metadata.Pipeline(),
 }
 
 

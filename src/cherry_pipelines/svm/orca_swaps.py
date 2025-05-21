@@ -1,6 +1,7 @@
 from copy import deepcopy
 from clickhouse_connect.driver.asyncclient import AsyncClient
 from cherry_etl import config as cc, run_pipeline
+from cherry_etl.utils import svm_anchor_discriminator
 from cherry_core import ingest, base58_decode_string
 import logging
 from typing import Dict, Any
@@ -74,7 +75,7 @@ _TOKEN_TRANSFER_CHECKED_SIGNATURE = InstructionSignature(
 )
 
 _PROGRAM_ID = "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc"
-_DISCRIMINATOR_V1 = bytes.fromhex("f8c69e91e17587c8")
+_DISCRIMINATOR_V1 = svm_anchor_discriminator("swap")
 _INSTRUCTION_SIGNATURE_V1 = InstructionSignature(
     discriminator=_DISCRIMINATOR_V1,
     params=[
@@ -110,7 +111,7 @@ _INSTRUCTION_SIGNATURE_V1 = InstructionSignature(
     ],
 )
 
-_DISCRIMINATOR_V2 = bytes.fromhex("2b04ed0b1ac91e62")
+_DISCRIMINATOR_V2 = svm_anchor_discriminator("swap_v2")
 _INSTRUCTION_SIGNATURE_V2 = InstructionSignature(
     discriminator=_DISCRIMINATOR_V2,
     params=[
@@ -233,6 +234,8 @@ CREATE TABLE IF NOT EXISTS {_TABLE_NAME} (
     block_height UInt64,
     version UInt8,
     a_to_b Boolean,
+    found_input Boolean,
+    found_output Boolean,
 
     INDEX ts_idx timestamp TYPE minmax GRANULARITY 4,
     INDEX height_idx block_height TYPE minmax GRANULARITY 4,
@@ -441,12 +444,14 @@ def process_data(data: Dict[str, pl.DataFrame], _: Any) -> Dict[str, pl.DataFram
         pl.col("transaction_index"),
         pl.col("amount").alias("input_amount"),
         pl.col("instruction_index"),
+        pl.lit(True).alias("found_input"),
     )
     output_transfers = transfers.select(
         pl.col("block_slot"),
         pl.col("transaction_index"),
         pl.col("amount").alias("output_amount"),
         pl.col("instruction_index"),
+        pl.lit(True).alias("found_output"),
     )
 
     swaps = swaps.join(
