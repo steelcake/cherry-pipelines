@@ -1,8 +1,11 @@
 import polars as pl
+import logging
 from typing import List
 from datetime import datetime, timezone
 from cherry_pipelines.config import EvmConfig
 from cherry_core import get_token_metadata_as_table
+
+logger = logging.getLogger(__name__)
 
 
 def get_protocol_df(
@@ -28,15 +31,44 @@ def get_protocol_df(
 
 
 def get_token_df(cfg: EvmConfig, token_address: List[str]) -> pl.DataFrame:
-    current_time = int(datetime.now(timezone.utc).timestamp())
-    token_metadata = get_token_metadata_as_table(
-        cfg.rpc_provider_url,
-        token_address,
+    chunk_size = 30
+    chunks_dfs = []
+    empty_df = pl.DataFrame(
+        schema={
+            "address": pl.Binary(),
+            "name": pl.String(),
+            "symbol": pl.String(),
+            "decimals": pl.UInt8(),
+            "exe_timestamp_utc": pl.Int64(),
+        }
     )
+    for i in range(0, len(token_address), chunk_size):
+        addresses_chunk = token_address[i : i + chunk_size]
 
-    token_df = pl.from_arrow(token_metadata)
+        try:
+            token_metadata = get_token_metadata_as_table(
+                cfg.rpc_provider_url,
+                addresses_chunk,
+            )
+            chunk_df = pl.from_arrow(token_metadata)
+        except Exception as e:
+            logger.error(
+                f"Error getting token metadata: {e}. Tokens affected: {addresses_chunk}"
+            )
+            chunk_df = empty_df
+        chunks_dfs.append(chunk_df)
+
+    if len(chunks_dfs) > 1:
+        token_df = pl.concat(
+            chunks_dfs,
+            how="vertical",
+        )
+    else:
+        token_df = empty_df
+
     assert isinstance(token_df, pl.DataFrame), "token_df must be a DataFrame"
 
+    current_time = int(datetime.now(timezone.utc).timestamp())
     token_df = token_df.select(
         pl.concat_str(
             pl.lit("0x"), pl.col("address").bin.encode("hex").str.to_lowercase()
