@@ -29,6 +29,7 @@ from cherry_pipelines.config import (
 )
 
 from ..pipeline import EvmPipeline
+from . import transformations
 
 from clickhouse_connect.driver.asyncclient import AsyncClient
 
@@ -300,14 +301,14 @@ def save_to_parquet(data: Dict[str, pl.DataFrame], _: Any) -> Dict[str, pl.DataF
     }
     return output_dict
 
-def transformation_steps(data: Dict[str, pl.DataFrame], context: Any) -> Dict[str, pl.DataFrame]:
-    current_time = int(datetime.now(timezone.utc).timestamp())
-
+def transformations(data: Dict[str, pl.DataFrame], context: Any) -> Dict[str, pl.DataFrame]:
+    # context variables
     tables = context["tables"]
     cfg = context["cfg"]
     persistent_token_df = context["persistent_token_df"]
     factory_address = context["factory_address"]
 
+    # input data tables
     pair_created_logs_df = data["pair_created_logs"]
     swap_logs_df = data["swap_logs"]
     mint_logs_df = data["mint_logs"]
@@ -315,47 +316,17 @@ def transformation_steps(data: Dict[str, pl.DataFrame], context: Any) -> Dict[st
     sync_logs_df = data["sync_logs"]
 
     output_dict = {}
-
-
-    token0 = pair_created_logs_df.select(
-        pl.col("token0").alias("address")
-    )
-    token1 = pair_created_logs_df.select(
-        pl.col("token1").alias("address")
-    )
-    new_tokens = token0.vstack(token1).unique().join(persistent_token_df, on="address", how="anti")
-    new_tokens_list = new_tokens.select(
-        pl.concat_str(pl.lit("0x"),pl.col("address").bin.encode("hex").str.to_lowercase()).alias("id")
-    ).to_series().to_list()
-
+    
+    new_tokens_list = transformations.get_new_tokens(pair_created_logs_df, persistent_token_df)
     new_tokens_df = create_row_for_token_table(
         cfg=cfg,
         token_address=new_tokens_list,
     )
     persistent_token_df.vstack(new_tokens_df, in_place=True)
-
     output_dict[tables["token"]] = new_tokens_df
-
-    liquidity_pool_df = (pair_created_logs_df
-        .join(persistent_token_df, left_on="token0", right_on="address", how="left")
-        .join(persistent_token_df, left_on="token1", right_on="address", how="left", suffix="_token1")
-        .select(
-            pl.concat_str(pl.lit("0x"), pl.col("pair").bin.encode("hex").str.to_lowercase()).alias("id"),
-            pl.col("pair").alias("address"),
-            pl.lit(factory_address).alias("protocol"),
-            #fix the name
-            pl.concat_str(pl.lit("Uniswap V2-"), pl.col("symbol"), pl.lit("/"), pl.col("symbol_token1")).alias("name"),
-            pl.concat_str(pl.col("symbol"), pl.lit("/"), pl.col("symbol_token1")).alias("symbol"),
-            pl.concat_list([pl.col("token0"), pl.col("token1")]).alias("input_tokens"),
-            pl.col("pair").alias("output_token"),
-            pl.col("transaction_hash").alias("created_tx_hash"),
-            pl.col("timestamp").alias("created_timestamp"),
-            pl.col("block_number").alias("created_block_number"),
-            pl.lit(current_time).alias("exe_timestamp_utc")
-        )
-    )
+    
+    liquidity_pool_df = transformations.get_liquidity_pool_df(pair_created_logs_df, persistent_token_df, factory_address)
     output_dict[tables["liquidity_pool"]] = liquidity_pool_df
-
 
     pair_created_logs_df = pair_created_logs_df.select(
         pl.col("pair"),
@@ -369,156 +340,20 @@ def transformation_steps(data: Dict[str, pl.DataFrame], context: Any) -> Dict[st
         pl.col("reserve0"),
         pl.col("reserve1"),
     )
-    token0_swap_df = (swap_logs_df
-        .filter(pl.col("amount0In") - pl.col("amount0Out") > 0) # token0 is the input token
-        .join(pair_created_logs_df, left_on="address", right_on="pair", how="inner") # Inner join will exclude pairs from forks
-        .join(persistent_token_df, left_on="token0", right_on="address", how="left", suffix="_token0")
-        .join(persistent_token_df, left_on="token1", right_on="address", how="left", suffix="_token1")
-        .join(sync_logs_df, left_on=[pl.col("transaction_hash"), pl.col("address"), pl.col("log_index")], right_on=[pl.col("transaction_hash"), pl.col("address"), (pl.col("log_index")+1)], how="left", suffix="_sync") # Join with the next log to get the reserve amounts
-        .select([
-            pl.concat_str(pl.lit("swap-0x"), pl.col("transaction_hash").bin.encode("hex").str.to_lowercase(), pl.lit("-"), pl.col("log_index").cast(pl.Utf8)).alias("id"),
-            pl.lit(factory_address).alias("protocol"),
-            pl.col("timestamp").alias("block_timestamp"),
-            pl.concat_str(pl.lit("0x"), pl.col("address").bin.encode("hex").str.to_lowercase()).alias("liquidity_pool"),
-            pl.col("token0").alias("token_sold"),
-            pl.col("symbol").alias("token_sold_symbol"),
-            pl.col("amount0In").alias("amount_sold_raw"),
-            (pl.col("amount0In")/pow(10, pl.col("decimals"))).alias("amount_sold"), # need to understand why this is not working
-            pl.col("token1").alias("token_bought"),
-            pl.col("symbol_token1").alias("token_bought_symbol"),
-            pl.col("amount1Out").alias("amount_bought_raw"),
-            (pl.col("amount1Out")/pow(10, pl.col("decimals_token1"))).alias("amount_bought"), # need to understand why this is not working
-            pl.concat_list([pl.col("reserve0"), pl.col("reserve1")]).alias("reserve_amounts"),
-            pl.col("sender").alias("from"),
-            pl.col("to").alias("to"),
-            pl.col("from").alias("tx_from"),
-            pl.col("to_right").alias("tx_to"),
-            pl.col("transaction_hash").alias("tx_hash"),
-            pl.col("block_number").alias("block_number"),
-            pl.col("transaction_index").alias("tx_index"),
-            pl.col("log_index").alias("log_index"),
-            pl.lit(current_time).alias("exe_timestamp_utc")
-        ])
-    )
-    token1_swap_df = (swap_logs_df
-        .filter(pl.col("amount0In") - pl.col("amount0Out") < 0) # token1 is the input token
-        .join(pair_created_logs_df, left_on="address", right_on="pair", how="inner") # Inner join will exclude pairs from forks
-        .join(persistent_token_df, left_on="token0", right_on="address", how="left", suffix="_token0")
-        .join(persistent_token_df, left_on="token1", right_on="address", how="left", suffix="_token1")
-        .join(sync_logs_df, left_on=[pl.col("transaction_hash"), pl.col("address"), pl.col("log_index")], right_on=[pl.col("transaction_hash"), pl.col("address"), (pl.col("log_index")+1)], how="left", suffix="_sync") # Join with the next log to get the reserve amounts
-        .select([
-            pl.concat_str(pl.lit("swap-0x"), pl.col("transaction_hash").bin.encode("hex").str.to_lowercase(), pl.lit("-"), pl.col("log_index").cast(pl.Utf8)).alias("id"),
-            pl.lit(factory_address).alias("protocol"),
-            pl.col("timestamp").alias("block_timestamp"),
-            pl.concat_str(pl.lit("0x"), pl.col("address").bin.encode("hex").str.to_lowercase()).alias("liquidity_pool"),
-            pl.col("token1").alias("token_sold"),
-            pl.col("symbol_token1").alias("token_sold_symbol"),
-            pl.col("amount1In").alias("amount_sold_raw"),
-            (pl.col("amount1In")/pow(10, pl.col("decimals_token1"))).alias("amount_sold"), # need to understand why this is not working
-            pl.col("token0").alias("token_bought"),
-            pl.col("symbol").alias("token_bought_symbol"),
-            pl.col("amount0Out").alias("amount_bought_raw"),
-            (pl.col("amount0Out")/pow(10, pl.col("decimals"))).alias("amount_bought"), # need to understand why this is not working
-            pl.concat_list([pl.col("reserve0"), pl.col("reserve1")]).alias("reserve_amounts"),
-            pl.col("sender").alias("from"),
-            pl.col("to").alias("to"),
-            pl.col("from").alias("tx_from"),
-            pl.col("to_right").alias("tx_to"),
-            pl.col("transaction_hash").alias("tx_hash"),
-            pl.col("block_number").alias("block_number"),
-            pl.col("transaction_index").alias("tx_index"),
-            pl.col("log_index").alias("log_index"),
-            pl.lit(current_time).alias("exe_timestamp_utc")
-        ])
-    )
-    swap_df = token0_swap_df.vstack(token1_swap_df)
+
+    swap_df = transformations.get_swap_df(swap_logs_df, pair_created_logs_df, persistent_token_df, sync_logs_df, factory_address)
     output_dict[tables["swap"]] = swap_df
 
-    deposit_df = (mint_logs_df
-        .join(pair_created_logs_df, left_on="address", right_on="pair", how="inner")
-        .join(persistent_token_df, left_on="token0", right_on="address", how="left", suffix="_token0")
-        .join(persistent_token_df, left_on="token1", right_on="address", how="left", suffix="_token1")
-        .join(sync_logs_df, left_on=[pl.col("transaction_hash"), pl.col("address"), pl.col("log_index")], right_on=[pl.col("transaction_hash"), pl.col("address"), (pl.col("log_index")+1)], how="left", suffix="_sync") # Join with the next log to get the reserve amounts
-        .select([
-            pl.concat_str(pl.lit("deposit-0x"), pl.col("transaction_hash").bin.encode("hex").str.to_lowercase(), pl.lit("-"), pl.col("log_index").cast(pl.Utf8)).alias("id"),
-            pl.lit(factory_address).alias("protocol"),
-            pl.col("timestamp").alias("block_timestamp"),
-            pl.concat_str(pl.lit("0x"), pl.col("address").bin.encode("hex").str.to_lowercase()).alias("liquidity_pool"),
-            pl.concat_list([pl.col("token0"), pl.col("token1")]).alias("input_tokens"),
-            pl.concat_list([pl.col("symbol"), pl.col("symbol_token1")]).alias("input_token_symbols"),
-            pl.col("address").alias("output_token"),
-            pl.concat_list([pl.col("amount0"), pl.col("amount1")]).alias("input_token_amounts"),
-            pl.concat_list([pl.col("reserve0"), pl.col("reserve1")]).alias("reserve_amounts"),
-            pl.col("sender").alias("from"),
-            pl.lit(None).alias("to"),
-            pl.col("from").alias("tx_from"),
-            pl.col("to").alias("tx_to"),
-            pl.col("transaction_hash").alias("tx_hash"),
-            pl.col("block_number").alias("block_number"),
-            pl.col("transaction_index").alias("tx_index"),
-            pl.col("log_index").alias("log_index"),
-            pl.lit(current_time).alias("exe_timestamp_utc")
-        ])
-    )
+    deposit_df = transformations.get_deposit_df(mint_logs_df, pair_created_logs_df, persistent_token_df, sync_logs_df, factory_address)
     output_dict[tables["deposit"]] = deposit_df
 
-    withdraw_df = (burn_logs_df
-        .join(pair_created_logs_df, left_on="address", right_on="pair", how="inner")
-        .join(persistent_token_df, left_on="token0", right_on="address", how="left", suffix="_token0")
-        .join(persistent_token_df, left_on="token1", right_on="address", how="left", suffix="_token1")
-        .join(sync_logs_df, left_on=[pl.col("transaction_hash"), pl.col("address"), pl.col("log_index")], right_on=[pl.col("transaction_hash"), pl.col("address"), (pl.col("log_index")+1)], how="left", suffix="_sync") # Join with the next log to get the reserve amounts
-        .select([
-            pl.concat_str(pl.lit("withdraw-0x"), pl.col("transaction_hash").bin.encode("hex").str.to_lowercase(), pl.lit("-"), pl.col("log_index").cast(pl.Utf8)).alias("id"),
-            pl.lit(factory_address).alias("protocol"),
-            pl.col("timestamp").alias("block_timestamp"),
-            pl.concat_str(pl.lit("0x"), pl.col("address").bin.encode("hex").str.to_lowercase()).alias("liquidity_pool"),
-            pl.concat_list([pl.col("token0"), pl.col("token1")]).alias("input_tokens"),
-            pl.concat_list([pl.col("symbol"), pl.col("symbol_token1")]).alias("input_token_symbols"),
-            pl.col("address").alias("output_token"),
-            pl.concat_list([pl.col("amount0"), pl.col("amount1")]).alias("input_token_amounts"),
-            pl.concat_list([pl.col("reserve0"), pl.col("reserve1")]).alias("reserve_amounts"),
-            pl.col("sender").alias("from"),
-            pl.col("to").alias("to"),
-            pl.col("from").alias("tx_from"),
-            pl.col("to_right").alias("tx_to"),
-            pl.col("transaction_hash").alias("tx_hash"),
-            pl.col("block_number").alias("block_number"),
-            pl.col("transaction_index").alias("tx_index"),
-            pl.col("log_index").alias("log_index"),
-            pl.lit(current_time).alias("exe_timestamp_utc")
-        ])
-    )
+    withdraw_df = transformations.get_withdraw_df(burn_logs_df, pair_created_logs_df, persistent_token_df, sync_logs_df, factory_address)
     output_dict[tables["withdraw"]] = withdraw_df
 
-    interaction_selection = [
-        pl.col("id"),
-        pl.col("protocol"),
-        pl.col("block_timestamp"),
-        pl.col("liquidity_pool"),
-        pl.col("from"),
-        pl.col("to"),
-        pl.col("tx_from"),
-        pl.col("tx_to"),
-        pl.col("tx_hash"),
-        pl.col("block_number"),
-        pl.col("tx_index"),
-        pl.col("log_index"),
-        pl.col("exe_timestamp_utc"),        
-    ]
-
-    swap_interaction_df = swap_df.select(
-        interaction_selection
-    )
-    deposit_interaction_df = deposit_df.select(
-        interaction_selection
-    )
-    withdraw_interaction_df = withdraw_df.select(
-        interaction_selection
-    )
-    output_dict[tables["interaction"]] = pl.concat([swap_interaction_df, deposit_interaction_df, withdraw_interaction_df], how="vertical")
+    interaction_df = transformations.get_interaction_df(swap_df, deposit_df, withdraw_df)
+    output_dict[tables["interaction"]] = interaction_df
 
     return output_dict
-    
 
 
 async def run(cfg: EvmConfig, pipeline_name: str) -> cc.Pipeline:
@@ -558,7 +393,6 @@ async def pipeline_factory(
         address=address, name=name, slug=slug, network=network
     )
 
-    to_create_dict = {}
     try:
         protocol_exist = await cfg.client.query(
             f"SELECT CASE WHEN EXISTS (SELECT 1 FROM evm.protocols WHERE id = '{address}' AND network = '{network}') THEN 1 ELSE 0 END AS exists_flag;"
@@ -566,12 +400,10 @@ async def pipeline_factory(
         protocol_exist = bool(protocol_exist.result_rows[0][0])
     except DatabaseError:
         protocol_exist = False
-    if not protocol_exist:
-        to_create_dict["protocols"] = protocol_df.to_arrow()
 
     if not protocol_exist:
         data_writer = create_writer(writer)
-        await data_writer.push_data(to_create_dict)
+        await data_writer.push_data({"protocols": protocol_df.to_arrow()})
 
     pair_created_topic0 = evm_signature_to_topic0(PAIR_CREATED_EVENT_SIGNATURE)
     mint_topic0 = evm_signature_to_topic0(MINT_EVENT_SIGNATURE)
@@ -630,11 +462,21 @@ async def pipeline_factory(
             ),
         ),
     )
-
-    persistent_token_df = await cfg.client.query_arrow(
+    persistent_token = await cfg.client.query_arrow(
         f"SELECT * FROM {tables['token']}"
     )
-    persistent_token_df = pl.from_arrow(persistent_token_df)
+    schema = pa.schema([
+        pa.field('id', pa.string(), nullable=False),
+        pa.field('address', pa.binary(), nullable=False),
+        pa.field('name', pa.string(), nullable=False),
+        pa.field('symbol', pa.string(), nullable=False),
+        pa.field('decimals', pa.uint8(), nullable=False),
+        pa.field('exe_timestamp_utc', pa.int32(), nullable=False)
+    ])
+    persistent_token = persistent_token.cast(schema)
+    persistent_token_df = pl.from_arrow(persistent_token)
+    print(persistent_token_df)
+
     # Transformation Steps
     steps = [
         # Handle decimal256 values
@@ -722,7 +564,7 @@ async def pipeline_factory(
         cc.Step(
             kind=cc.StepKind.CUSTOM,
             config=cc.CustomStepConfig(
-                runner=transformation_steps,
+                runner=transformations,
                 context={
                     "tables": tables,
                     "cfg": cfg,
