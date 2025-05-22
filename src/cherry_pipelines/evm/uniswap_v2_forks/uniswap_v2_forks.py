@@ -115,9 +115,6 @@ def data_transformations(
 ) -> Dict[str, pl.DataFrame]:
     # context variables
     tables = context["tables"]
-    cfg = context["cfg"]
-    persistent_token_df = context["persistent_token_df"]
-    protocol_name = context["protocol_name"]
     factory_address = context["factory_address"]
 
     # input data tables
@@ -129,19 +126,8 @@ def data_transformations(
 
     output_dict = {}
 
-    new_tokens_list = transformations.get_new_tokens(
-        pair_created_logs_df, persistent_token_df
-    )
-    if len(new_tokens_list) > 0:
-        new_tokens_df = transformations.get_token_df(
-            cfg=cfg,
-            token_address=new_tokens_list,
-        )
-        persistent_token_df.vstack(new_tokens_df, in_place=True)
-        output_dict[tables["token"]] = new_tokens_df
-
     liquidity_pool_df = transformations.get_liquidity_pool_df(
-        pair_created_logs_df, persistent_token_df, factory_address, protocol_name
+        pair_created_logs_df, factory_address
     )
     output_dict[tables["liquidity_pool"]] = liquidity_pool_df
 
@@ -162,7 +148,6 @@ def data_transformations(
     swap_df = transformations.get_swap_df(
         swap_logs_df,
         pair_created_logs_df,
-        persistent_token_df,
         sync_logs_df,
         factory_address,
     )
@@ -171,7 +156,6 @@ def data_transformations(
     deposit_df = transformations.get_deposit_df(
         mint_logs_df,
         pair_created_logs_df,
-        persistent_token_df,
         sync_logs_df,
         factory_address,
     )
@@ -180,7 +164,6 @@ def data_transformations(
     withdraw_df = transformations.get_withdraw_df(
         burn_logs_df,
         pair_created_logs_df,
-        persistent_token_df,
         sync_logs_df,
         factory_address,
     )
@@ -327,20 +310,7 @@ async def pipeline_factory(
             ),
         ),
     )
-    persistent_token = await cfg.client.query_arrow(f"SELECT * FROM {tables['token']}")
-    schema = pa.schema(
-        [
-            pa.field("id", pa.string(), nullable=False),
-            pa.field("address", pa.binary(), nullable=False),
-            pa.field("name", pa.string(), nullable=False),
-            pa.field("symbol", pa.string(), nullable=False),
-            pa.field("decimals", pa.uint8(), nullable=False),
-            pa.field("exe_timestamp_utc", pa.int32(), nullable=False),
-        ]
-    )
-    persistent_token = persistent_token.cast(schema)
-    persistent_token_df = pl.from_arrow(persistent_token)
-
+    
     # Transformation Steps
     steps = [
         # Handle decimal256 values
@@ -425,10 +395,7 @@ async def pipeline_factory(
                 runner=data_transformations,
                 context={
                     "tables": tables,
-                    "cfg": cfg,
-                    "persistent_token_df": persistent_token_df,
                     "factory_address": address,
-                    "protocol_name": name,
                 },
             ),
         ),

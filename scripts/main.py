@@ -223,7 +223,6 @@ async def load_evm_config() -> EvmConfig:
 
     provider_kind = _to_provider_kind(os.environ["CHERRY_EVM_PROVIDER_KIND"])
     chain_id = int(os.environ["CHERRY_EVM_CHAIN_ID"])
-    rpc_provider_url = os.environ["RPC_PROVIDER_URL"]
     provider_buffer_size = _to_int_with_default(
         os.environ.get("CHERRY_PROVIDER_BUFFER_SIZE"), _DEFAULT_PROVIDER_BUFFER_SIZE
     )
@@ -237,7 +236,6 @@ async def load_evm_config() -> EvmConfig:
         provider=provider,
         chain_id=chain_id,
         client=client,
-        rpc_provider_url=rpc_provider_url,
     )
 
 
@@ -307,14 +305,15 @@ async def main():
 
     if pipeline_kind == "evm":
         pp = _EVM_PIPELINES[pipeline_name]
-        if is_init:
+        if not is_init:
+            cfg = await load_evm_config()
+            logger.info(
+                f"Running pipeline {pipeline_name} on {EVM_CHAIN_NAME[cfg.chain_id]}"
+            )
+            await pp.run(cfg, pipeline_name)
+        else:
             logger.info("Running db init")
             await pp.init_db(await connect_evm(), pipeline_name)
-        cfg = await load_evm_config()
-        logger.info(
-            f"Running pipeline {pipeline_name} on {EVM_CHAIN_NAME[cfg.chain_id]}"
-        )
-        await pp.run(cfg, pipeline_name)
     elif pipeline_kind == "svm":
         pp = _SVM_PIPELINES[pipeline_name]
         if not is_init:

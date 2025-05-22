@@ -14,7 +14,6 @@ class EvmConfig:
     to_block: Optional[int]
     chain_id: int
     client: AsyncClient
-    rpc_provider_url: str
 
 
 @dataclass
