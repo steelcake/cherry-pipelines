@@ -99,21 +99,9 @@ _INSTRUCTION_SIGNATURE_V2 = InstructionSignature(
 )
 
 _METADATA_TABLE_NAME = "orca_metadata"
-_METADATA_DICT_NAME = "orca_metadata_dict"
 
 
 async def init_db(client: AsyncClient):
-    await db.create_dict(
-        client,
-        _METADATA_DICT_NAME,
-        [
-            "whirlpool String",
-            "token_mint_a String",
-            "token_mint_b String",
-        ],
-        primary_key="whirlpool",
-    )
-
     await client.command(f"""
 CREATE TABLE IF NOT EXISTS {_METADATA_TABLE_NAME} (
     block_slot UInt64,
@@ -252,11 +240,6 @@ def process_data(data: Dict[str, pl.DataFrame], _: Any) -> Dict[str, pl.DataFram
     out = {}
 
     out[_METADATA_TABLE_NAME] = inits
-    out[_METADATA_DICT_NAME + "_table"] = inits.select(
-        "whirlpool",
-        "token_mint_a",
-        "token_mint_b",
-    )
 
     return out
 
@@ -323,7 +306,6 @@ async def run(cfg: SvmConfig):
         config=cc.ClickHouseWriterConfig(
             client=cfg.client,
             create_tables=False,
-            anchor_table=_METADATA_TABLE_NAME,
         ),
     )
 

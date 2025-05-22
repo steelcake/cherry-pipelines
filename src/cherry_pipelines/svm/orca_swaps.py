@@ -307,8 +307,6 @@ def select_swaps_df(swaps: pl.DataFrame) -> pl.DataFrame:
         "whirlpool",
         "input_token_account",
         "output_token_account",
-        "input_mint",
-        "output_mint",
         "input_vault",
         "output_vault",
         "amount",
@@ -468,6 +466,33 @@ def process_data(data: Dict[str, pl.DataFrame], _: Any) -> Dict[str, pl.DataFram
         how="left",
     )
 
+    token_balances = data["token_balances"]
+    input_balances = token_balances.select(
+        pl.col("block_slot"),
+        pl.col("transaction_index"),
+        pl.col("account"),
+        pl.col("post_mint").alias("input_mint"),
+    )
+    output_balances = token_balances.select(
+        pl.col("block_slot"),
+        pl.col("transaction_index"),
+        pl.col("account"),
+        pl.col("post_mint").alias("output_mint"),
+    )
+
+    swaps = swaps.join(
+        input_balances,
+        left_on=["block_slot", "transaction_index", "input_vault"],
+        right_on=["block_slot", "transaction_index", "account"],
+        how="left",
+    )
+    swaps = swaps.join(
+        output_balances,
+        left_on=["block_slot", "transaction_index", "output_vault"],
+        right_on=["block_slot", "transaction_index", "account"],
+        how="left",
+    )
+
     swaps = swaps.join(transactions, on=["block_slot", "transaction_index"], how="left")
 
     swaps = swaps.join(blocks, on="block_slot", how="left")
@@ -478,6 +503,10 @@ def process_data(data: Dict[str, pl.DataFrame], _: Any) -> Dict[str, pl.DataFram
 
     out = {}
     out[_TABLE_NAME] = swaps
+    out["token_decimals_table"] = token_balances.select(
+        pl.col("post_mint").alias("mint"),
+        pl.col("post_decimals").alias("decimals"),
+    )
     return out
 
 
@@ -499,6 +528,7 @@ async def run(cfg: SvmConfig):
                     include_blocks=True,
                     include_inner_instructions=True,
                     is_committed=True,
+                    include_transaction_token_balances=True,
                 )
             ],
             fields=ingest.svm.Fields(
@@ -532,6 +562,13 @@ async def run(cfg: SvmConfig):
                     program_id=True,
                     rest_of_accounts=True,
                 ),
+                token_balance=ingest.svm.TokenBalanceFields(
+                    block_slot=True,
+                    transaction_index=True,
+                    post_decimals=True,
+                    post_mint=True,
+                    account=True,
+                ),
             ),
         ),
     )
@@ -541,6 +578,7 @@ async def run(cfg: SvmConfig):
         config=cc.ClickHouseWriterConfig(
             client=cfg.client,
             create_tables=False,
+            anchor_table=_TABLE_NAME,
         ),
     )
 
