@@ -6,6 +6,7 @@ from ..config import (
 import logging
 from typing import Optional
 from .pipeline import EvmPipeline
+from ..db import create_dict
 
 logger = logging.getLogger(__name__)
 
@@ -21,14 +22,19 @@ class Pipeline(EvmPipeline):
         await init_db(client)
 
 
+_DICT_NAME = "chain_name"
+
+
 async def init_db(client: AsyncClient):
-    await client.command("""
-        CREATE TABLE IF NOT EXISTS chain_name_table (
-            chain_id UInt64,
-            chain_name String,
-            PRIMARY KEY chain_id 
-        ) ENGINE = EmbeddedRocksDB;
-    """)
+    await create_dict(
+        client,
+        _DICT_NAME,
+        [
+            "chain_id UInt64",
+            "chain_name String",
+        ],
+        primary_key="chain_id",
+    )
 
     data = []
 
@@ -36,14 +42,5 @@ async def init_db(client: AsyncClient):
         data.append([id, name])
 
     await client.insert(
-        "chain_name_table", data, column_names=["chain_id", "chain_name"]
+        f"{_DICT_NAME}_table", data, column_names=["chain_id", "chain_name"]
     )
-
-    await client.command("""
-        CREATE DICTIONARY IF NOT EXISTS chain_name (
-            chain_id UInt64,
-            chain_name String
-        ) PRIMARY KEY chain_id 
-        SOURCE(CLICKHOUSE(TABLE 'chain_name_table'))
-        LAYOUT(DIRECT());
-    """)

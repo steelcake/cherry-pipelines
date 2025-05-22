@@ -21,3 +21,35 @@ async def get_next_block(
     except Exception:
         logger.warning("failed to get start block from db")
         return 0
+
+
+async def create_dict(
+    client: AsyncClient, dict_name: str, field_definitions: list[str], primary_key: str
+):
+    field_defn = ",\n".join(field_definitions)
+
+    create_table_sql = f"""
+        CREATE TABLE IF NOT EXISTS {dict_name}_table (
+            {field_defn},
+            PRIMARY KEY {primary_key}
+        ) ENGINE = EmbeddedRocksDB()
+        SETTINGS optimize_for_bulk_insert=0;
+    """
+
+    logger.info(
+        f"Creating dict table named {dict_name}_table using sql:\n{create_table_sql}"
+    )
+
+    await client.command(create_table_sql)
+
+    create_dict_sql = f"""
+        CREATE DICTIONARY IF NOT EXISTS {dict_name} (
+            {field_defn}
+        ) PRIMARY KEY {primary_key} 
+        SOURCE(CLICKHOUSE(TABLE '{dict_name}_table'))
+        LAYOUT(DIRECT());
+    """
+
+    logger.info(f"Creating dict named {dict_name} using sql:\n{create_dict_sql}")
+
+    await client.command(create_dict_sql)
