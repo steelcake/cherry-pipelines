@@ -295,7 +295,7 @@ _SVM_PIPELINES = {
 
 
 async def main():
-    load_dotenv(override=True)
+    load_dotenv()
     logging.basicConfig(level=os.environ.get("PY_LOG", "INFO").upper())
 
     pipeline_kind = os.environ["CHERRY_PIPELINE_KIND"]
