@@ -1,9 +1,6 @@
 import polars as pl
 import logging
-from typing import List
 from datetime import datetime, timezone
-from cherry_pipelines.config import EvmConfig
-from cherry_core import get_token_metadata_as_table
 
 logger = logging.getLogger(__name__)
 
@@ -35,20 +32,18 @@ def get_liquidity_pool_df(
     factory_address: str,
 ) -> pl.DataFrame:
     current_time = int(datetime.now(timezone.utc).timestamp())
-    liquidity_pool_df = (
-        pair_created_logs_df.select(
-            pl.concat_str(
-                pl.lit("0x"), pl.col("pair").bin.encode("hex").str.to_lowercase()
-            ).alias("id"),
-            pl.col("pair").alias("address"),
-            pl.lit(factory_address).alias("protocol"),
-            pl.concat_list([pl.col("token0"), pl.col("token1")]).alias("input_tokens"),
-            pl.col("pair").alias("output_token"),
-            pl.col("transaction_hash").alias("created_tx_hash"),
-            pl.col("timestamp").alias("created_timestamp"),
-            pl.col("block_number").alias("created_block_number"),
-            pl.lit(current_time).alias("exe_timestamp_utc"),
-        )
+    liquidity_pool_df = pair_created_logs_df.select(
+        pl.concat_str(
+            pl.lit("0x"), pl.col("pair").bin.encode("hex").str.to_lowercase()
+        ).alias("id"),
+        pl.col("pair").alias("address"),
+        pl.lit(factory_address).alias("protocol"),
+        pl.concat_list([pl.col("token0"), pl.col("token1")]).alias("input_tokens"),
+        pl.col("pair").alias("output_token"),
+        pl.col("transaction_hash").alias("created_tx_hash"),
+        pl.col("timestamp").alias("created_timestamp"),
+        pl.col("block_number").alias("created_block_number"),
+        pl.lit(current_time).alias("exe_timestamp_utc"),
     )
     return liquidity_pool_df
 

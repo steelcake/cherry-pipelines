@@ -310,7 +310,7 @@ async def pipeline_factory(
             ),
         ),
     )
-    
+
     # Transformation Steps
     steps = [
         # Handle decimal256 values
