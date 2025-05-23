@@ -300,12 +300,12 @@ CREATE TABLE IF NOT EXISTS {_TABLE_NAME} (
     output_amount UInt64,
 
     swap_kind Enum(
-        "amm_base_in" = 1,
-        "amm_base_out" = 2,
-        "clmm_v1" = 3,
-        "clmm_v2" = 4,
-        "cp_swap_base_input" = 5,
-        "cp_swap_base_output" = 6
+        'amm_base_in' = 1,
+        'amm_base_out' = 2,
+        'clmm_v1' = 3,
+        'clmm_v2' = 4,
+        'cp_swap_base_input' = 5,
+        'cp_swap_base_output' = 6
     ),
 
     max_amount_in UInt64,
@@ -407,72 +407,153 @@ def split_instructions(
 
 
 def process_data(data: Dict[str, pl.DataFrame], _: Any) -> Dict[str, pl.DataFrame]:
-    swaps_v1 = data["swaps_v1"]
-    swaps_v1 = swaps_v1.select(
+    swaps_v1 = data["swaps_v1"].select(
         pl.col("block_slot"),
         pl.col("block_hash"),
         pl.col("transaction_index"),
         pl.col("instruction_address"),
         pl.col("program_id"),
-        pl.col("token_authority"),
-        pl.col("token_program").alias("token_program_a"),
-        pl.col("token_program").alias("token_program_b"),
-        pl.lit(None).cast(pl.Binary).alias("memo_program"),
-        pl.col("whirlpool"),
-        pl.lit(None).cast(pl.Binary).alias("token_mint_a"),
-        pl.lit(None).cast(pl.Binary).alias("token_mint_b"),
-        pl.col("token_owner_account_a"),
-        pl.col("token_vault_a"),
-        pl.col("token_owner_account_b"),
-        pl.col("token_vault_b"),
+        pl.col("payer"),
+        pl.col("pool_state").alias("pool"),
+        pl.col("input_token_account"),
+        pl.col("output_token_account"),
+        pl.lit("clmm_v1").alias("swap_kind"),
+        pl.lit(None).cast(pl.UInt64).alias("max_amount_in"),
+        pl.lit(None).cast(pl.UInt64).alias("amount_out"),
+        pl.lit(None).cast(pl.UInt64).alias("amount_in"),
+        pl.lit(None).cast(pl.UInt64).alias("minimum_amount_out"),
         pl.col("amount"),
         pl.col("other_amount_threshold"),
-        pl.col("sqrt_price_limit"),
-        pl.col("amount_specified_is_input"),
-        pl.col("a_to_b"),
-        pl.col("instruction_index"),
-        pl.repeat(1, swaps_v1.height, dtype=pl.UInt8).alias("version"),
+        pl.col("sqrt_price_limit_x64"),
+        pl.col("is_base_input"),
     )
-    swaps_v2 = data["swaps_v2"]
-    swaps_v2 = swaps_v2.select(
+    swaps_v2 = data["swaps_v2"].select(
         pl.col("block_slot"),
         pl.col("block_hash"),
         pl.col("transaction_index"),
         pl.col("instruction_address"),
         pl.col("program_id"),
-        pl.col("token_authority"),
-        pl.col("token_program_a"),
-        pl.col("token_program_b"),
-        pl.col("memo_program"),
-        pl.col("whirlpool"),
-        pl.col("token_mint_a"),
-        pl.col("token_mint_b"),
-        pl.col("token_owner_account_a"),
-        pl.col("token_vault_a"),
-        pl.col("token_owner_account_b"),
-        pl.col("token_vault_b"),
+        pl.col("payer"),
+        pl.col("pool_state").alias("pool"),
+        pl.col("input_token_account"),
+        pl.col("output_token_account"),
+        pl.lit("clmm_v2").alias("swap_kind"),
+        pl.lit(None).cast(pl.UInt64).alias("max_amount_in"),
+        pl.lit(None).cast(pl.UInt64).alias("amount_out"),
+        pl.lit(None).cast(pl.UInt64).alias("amount_in"),
+        pl.lit(None).cast(pl.UInt64).alias("minimum_amount_out"),
         pl.col("amount"),
         pl.col("other_amount_threshold"),
-        pl.col("sqrt_price_limit"),
-        pl.col("amount_specified_is_input"),
-        pl.col("a_to_b"),
-        pl.col("instruction_index"),
-        pl.repeat(2, swaps_v2.height, dtype=pl.UInt8).alias("version"),
+        pl.col("sqrt_price_limit_x64"),
+        pl.col("is_base_input"),
+    )
+    cp_swap_base_input_swaps = data["cp_swap_base_input_swaps"].select(
+        pl.col("block_slot"),
+        pl.col("block_hash"),
+        pl.col("transaction_index"),
+        pl.col("instruction_address"),
+        pl.col("program_id"),
+        pl.col("payer"),
+        pl.col("pool_state").alias("pool"),
+        pl.col("input_token_account"),
+        pl.col("output_token_account"),
+        pl.lit("cp_swap_base_input").alias("swap_kind"),
+        pl.lit(None).cast(pl.UInt64).alias("max_amount_in"),
+        pl.lit(None).cast(pl.UInt64).alias("amount_out"),
+        pl.col("amount_in"),
+        pl.col("minimum_amount_out"),
+        pl.lit(None).cast(pl.UInt64).alias("amount"),
+        pl.lit(None).cast(pl.UInt64).alias("other_amount_threshold"),
+        pl.lit(None).cast(pl.Decimal128).alias("sqrt_price_limit_x64"),
+        pl.lit(None).cast(pl.Boolean).alias("is_base_input"),
+    )
+    cp_swap_base_output_swaps = data["cp_swap_base_output_swaps"].select(
+        pl.col("block_slot"),
+        pl.col("block_hash"),
+        pl.col("transaction_index"),
+        pl.col("instruction_address"),
+        pl.col("program_id"),
+        pl.col("payer"),
+        pl.col("pool_state").alias("pool"),
+        pl.col("input_token_account"),
+        pl.col("output_token_account"),
+        pl.lit("cp_swap_base_output").alias("swap_kind"),
+        pl.col("max_amount_in"),
+        pl.col("amount_out"),
+        pl.lit(None).cast(pl.UInt64).alias("amount_in"),
+        pl.lit(None).cast(pl.UInt64).alias("minimum_amount_out"),
+        pl.lit(None).cast(pl.UInt64).alias("amount"),
+        pl.lit(None).cast(pl.UInt64).alias("other_amount_threshold"),
+        pl.lit(None).cast(pl.Decimal128).alias("sqrt_price_limit_x64"),
+        pl.lit(None).cast(pl.Boolean).alias("is_base_input"),
+    )
+    amm_base_in_swaps = data["amm_base_in_swaps"].select(
+        pl.col("block_slot"),
+        pl.col("block_hash"),
+        pl.col("transaction_index"),
+        pl.col("instruction_address"),
+        pl.col("program_id"),
+        pl.col("user_source_owner").alias("payer"),
+        pl.col("amm").alias("pool"),
+        pl.col("user_source_token_account").alias("input_token_account"),
+        pl.col("user_destination_token_account").alias("output_token_account"),
+        pl.lit("amm_base_in").alias("swap_kind"),
+        pl.lit(None).cast(pl.UInt64).alias("max_amount_in"),
+        pl.lit(None).cast(pl.UInt64).alias("amount_out"),
+        pl.col("amount_in"),
+        pl.col("minimum_amount_out"),
+        pl.lit(None).cast(pl.UInt64).alias("amount"),
+        pl.lit(None).cast(pl.UInt64).alias("other_amount_threshold"),
+        pl.lit(None).cast(pl.Decimal128).alias("sqrt_price_limit_x64"),
+        pl.lit(None).cast(pl.Boolean).alias("is_base_input"),
+    )
+    amm_base_out_swaps = data["amm_base_out_swaps"].select(
+        pl.col("block_slot"),
+        pl.col("block_hash"),
+        pl.col("transaction_index"),
+        pl.col("instruction_address"),
+        pl.col("program_id"),
+        pl.col("user_source_owner").alias("payer"),
+        pl.col("amm").alias("pool"),
+        pl.col("user_source_token_account").alias("input_token_account"),
+        pl.col("user_destination_token_account").alias("output_token_account"),
+        pl.lit("amm_base_out").alias("swap_kind"),
+        pl.col("max_amount_in"),
+        pl.col("amount_out"),
+        pl.lit(None).cast(pl.UInt64).alias("amount_in"),
+        pl.lit(None).cast(pl.UInt64).alias("minimum_amount_out"),
+        pl.lit(None).cast(pl.UInt64).alias("amount"),
+        pl.lit(None).cast(pl.UInt64).alias("other_amount_threshold"),
+        pl.lit(None).cast(pl.Decimal128).alias("sqrt_price_limit_x64"),
+        pl.lit(None).cast(pl.Boolean).alias("is_base_input"),
     )
 
-    swaps = swaps_v1.vstack(swaps_v2)
+    swaps = pl.concat(
+        [
+            swaps_v1,
+            swaps_v2,
+            cp_swap_base_input_swaps,
+            cp_swap_base_output_swaps,
+            amm_base_in_swaps,
+            amm_base_out_swaps,
+        ]
+    )
 
     transfers = data["transfers"].select(
-        "block_slot",
-        "transaction_index",
-        "amount",
-        "instruction_index",
+        pl.col("block_slot"),
+        pl.col("transaction_index"),
+        pl.col("amount"),
+        pl.col("instruction_index"),
+        pl.col("destination").alias("input_vault"),
+        pl.col("source").alias("output_vault"),
     )
     checked_transfers = data["checked_transfers"].select(
-        "block_slot",
-        "transaction_index",
-        "amount",
-        "instruction_index",
+        pl.col("block_slot"),
+        pl.col("transaction_index"),
+        pl.col("amount"),
+        pl.col("instruction_index"),
+        pl.col("destination").alias("input_vault"),
+        pl.col("source").alias("output_vault"),
     )
     transfers = transfers.vstack(checked_transfers)
 
@@ -488,35 +569,6 @@ def process_data(data: Dict[str, pl.DataFrame], _: Any) -> Dict[str, pl.DataFram
         pl.col("timestamp"),
     )
 
-    a_b = swaps.filter(pl.col("a_to_b").eq(True))
-    b_a = swaps.filter(pl.col("a_to_b").eq(False))
-
-    swaps = select_swaps_df(
-        a_b.rename(
-            {
-                "token_mint_a": "input_mint",
-                "token_mint_b": "output_mint",
-                "token_owner_account_a": "input_token_account",
-                "token_owner_account_b": "output_token_account",
-                "token_vault_a": "input_vault",
-                "token_vault_b": "output_vault",
-            }
-        )
-    ).vstack(
-        select_swaps_df(
-            b_a.rename(
-                {
-                    "token_mint_a": "output_mint",
-                    "token_mint_b": "input_mint",
-                    "token_owner_account_a": "output_token_account",
-                    "token_owner_account_b": "input_token_account",
-                    "token_vault_a": "output_vault",
-                    "token_vault_b": "input_vault",
-                }
-            )
-        )
-    )
-
     swaps = swaps.with_columns(
         [
             pl.col("instruction_index").add(1).alias("input_transfer_index"),
@@ -530,6 +582,7 @@ def process_data(data: Dict[str, pl.DataFrame], _: Any) -> Dict[str, pl.DataFram
         pl.col("amount").alias("input_amount"),
         pl.col("instruction_index"),
         pl.lit(True).alias("found_input"),
+        pl.col("input_vault"),
     )
     output_transfers = transfers.select(
         pl.col("block_slot"),
@@ -537,6 +590,7 @@ def process_data(data: Dict[str, pl.DataFrame], _: Any) -> Dict[str, pl.DataFram
         pl.col("amount").alias("output_amount"),
         pl.col("instruction_index"),
         pl.lit(True).alias("found_output"),
+        pl.col("output_vault"),
     )
 
     swaps = swaps.join(
@@ -609,12 +663,20 @@ async def run(cfg: SvmConfig):
             to_block=cfg.to_block,
             instructions=[
                 ingest.svm.InstructionRequest(
-                    program_id=[_CLMM_PROGRAM_ID, _AMM_PROGRAM_ID, _CP_SWAP_PROGRAM_ID],
+                    program_id=[_CLMM_PROGRAM_ID],
                     discriminator=[
                         _SWAP_V1_DISCRIMINATOR,
                         _SWAP_V2_DISCRIMINATOR,
-                        _SWAP_BASE_INPUT_DISCRIMINATOR,
-                        _SWAP_BASE_OUTPUT_DISCRIMINATOR,
+                    ],
+                    include_transactions=True,
+                    include_blocks=True,
+                    include_inner_instructions=True,
+                    is_committed=True,
+                    include_transaction_token_balances=True,
+                ),
+                ingest.svm.InstructionRequest(
+                    program_id=[_AMM_PROGRAM_ID],
+                    discriminator=[
                         _SWAP_BASE_IN_DISCRIMINATOR,
                         _SWAP_BASE_OUT_DISCRIMINATOR,
                     ],
@@ -623,7 +685,19 @@ async def run(cfg: SvmConfig):
                     include_inner_instructions=True,
                     is_committed=True,
                     include_transaction_token_balances=True,
-                )
+                ),
+                ingest.svm.InstructionRequest(
+                    program_id=[_CP_SWAP_PROGRAM_ID],
+                    discriminator=[
+                        _SWAP_BASE_INPUT_DISCRIMINATOR,
+                        _SWAP_BASE_OUTPUT_DISCRIMINATOR,
+                    ],
+                    include_transactions=True,
+                    include_blocks=True,
+                    include_inner_instructions=True,
+                    is_committed=True,
+                    include_transaction_token_balances=True,
+                ),
             ],
             fields=ingest.svm.Fields(
                 block=ingest.svm.BlockFields(
