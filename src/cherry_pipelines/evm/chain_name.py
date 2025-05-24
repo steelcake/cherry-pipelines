@@ -4,7 +4,7 @@ from ..config import (
     EvmConfig,
 )
 import logging
-
+from typing import Optional
 from .pipeline import EvmPipeline
 from ..db import create_dict
 
@@ -12,11 +12,13 @@ logger = logging.getLogger(__name__)
 
 
 class Pipeline(EvmPipeline):
-    async def run(self, cfg: EvmConfig):
+    async def run(self, cfg: EvmConfig, pipeline_name: Optional[str] = None):
         _ = cfg
+        _ = pipeline_name
         pass
 
-    async def init_db(self, client: AsyncClient):
+    async def init_db(self, client: AsyncClient, pipeline_name: Optional[str] = None):
+        _ = pipeline_name
         await init_db(client)
 
 

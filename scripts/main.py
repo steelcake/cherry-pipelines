@@ -285,6 +285,8 @@ _EVM_PIPELINES: dict[str, EvmPipeline] = {
     "erc20_transfers": evm.erc20_transfers.Pipeline(),
     "chain_name": evm.chain_name.Pipeline(),
     "chain_id": evm.chain_id.Pipeline(),
+    "uniswap_v2_ethereum": evm.uniswap_v2_forks.Pipeline(),
+    "sushiswap_ethereum": evm.uniswap_v2_forks.Pipeline(),
 }
 
 _SVM_PIPELINES = {
@@ -311,10 +313,10 @@ async def main():
             logger.info(
                 f"Running pipeline {pipeline_name} on {EVM_CHAIN_NAME[cfg.chain_id]}"
             )
-            await pp.run(cfg)
+            await pp.run(cfg, pipeline_name)
         else:
             logger.info("Running db init")
-            await pp.init_db(await connect_evm())
+            await pp.init_db(await connect_evm(), pipeline_name)
     elif pipeline_kind == "svm":
         pp = _SVM_PIPELINES[pipeline_name]
         if not is_init:

@@ -99,3 +99,7 @@ EVM_CHAIN_NAME = {
     324: "zksync",
     7777777: "zora",
 }
+
+
+def make_evm_table_name(slug: str, network: str, table: str) -> str:
+    return f"{slug}_{network}_{table}"
