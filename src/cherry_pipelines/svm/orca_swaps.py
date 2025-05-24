@@ -49,9 +49,9 @@ _TOKEN_TRANSFER_SIGNATURE = InstructionSignature(
         ),
     ],
     accounts_names=[
-        "authority",
-        "destination",
         "source",
+        "destination",
+        "authority",
     ],
 )
 _TOKEN_TRANSFER_CHECKED_SIGNATURE = InstructionSignature(
@@ -67,10 +67,10 @@ _TOKEN_TRANSFER_CHECKED_SIGNATURE = InstructionSignature(
         ),
     ],
     accounts_names=[
-        "authority",
-        "destination",
-        "mint",
         "source",
+        "mint",
+        "destination",
+        "authority",
     ],
 )
 
