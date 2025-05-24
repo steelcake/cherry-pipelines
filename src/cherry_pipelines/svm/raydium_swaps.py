@@ -47,9 +47,9 @@ _TOKEN_TRANSFER_SIGNATURE = InstructionSignature(
         ),
     ],
     accounts_names=[
-        "authority",
-        "destination",
         "source",
+        "destination",
+        "authority",
     ],
 )
 _TOKEN_TRANSFER_CHECKED_SIGNATURE = InstructionSignature(
@@ -65,10 +65,10 @@ _TOKEN_TRANSFER_CHECKED_SIGNATURE = InstructionSignature(
         ),
     ],
     accounts_names=[
-        "authority",
-        "destination",
-        "mint",
         "source",
+        "mint",
+        "destination",
+        "authority",
     ],
 )
 
@@ -93,7 +93,7 @@ _SWAP_BASE_IN_SIGNATURE = InstructionSignature(
         "amm",
         "amm_authority",
         "amm_open_orders",
-        "amm_target_orders",
+        # "amm_target_orders",
         "pool_coin_token_account",
         "pool_pc_token_account",
         "serum_program",
@@ -126,7 +126,7 @@ _SWAP_BASE_OUT_SIGNATURE = InstructionSignature(
         "amm",
         "amm_authority",
         "amm_open_orders",
-        "amm_target_orders",
+        # "amm_target_orders",
         "pool_coin_token_account",
         "pool_pc_token_account",
         "serum_program",
@@ -407,7 +407,7 @@ def split_instructions(
 
 
 def process_data(data: Dict[str, pl.DataFrame], _: Any) -> Dict[str, pl.DataFrame]:
-    swaps_v1 = data["swaps_v1"].select(
+    swaps_v1 = data["clmm_swaps_v1"].select(
         pl.col("block_slot"),
         pl.col("block_hash"),
         pl.col("transaction_index"),
@@ -426,8 +426,9 @@ def process_data(data: Dict[str, pl.DataFrame], _: Any) -> Dict[str, pl.DataFram
         pl.col("other_amount_threshold"),
         pl.col("sqrt_price_limit_x64"),
         pl.col("is_base_input"),
+        pl.col("instruction_index"),
     )
-    swaps_v2 = data["swaps_v2"].select(
+    swaps_v2 = data["clmm_swaps_v2"].select(
         pl.col("block_slot"),
         pl.col("block_hash"),
         pl.col("transaction_index"),
@@ -446,6 +447,7 @@ def process_data(data: Dict[str, pl.DataFrame], _: Any) -> Dict[str, pl.DataFram
         pl.col("other_amount_threshold"),
         pl.col("sqrt_price_limit_x64"),
         pl.col("is_base_input"),
+        pl.col("instruction_index"),
     )
     cp_swap_base_input_swaps = data["cp_swap_base_input_swaps"].select(
         pl.col("block_slot"),
@@ -464,8 +466,9 @@ def process_data(data: Dict[str, pl.DataFrame], _: Any) -> Dict[str, pl.DataFram
         pl.col("minimum_amount_out"),
         pl.lit(None).cast(pl.UInt64).alias("amount"),
         pl.lit(None).cast(pl.UInt64).alias("other_amount_threshold"),
-        pl.lit(None).cast(pl.Decimal128).alias("sqrt_price_limit_x64"),
+        pl.lit(None).cast(pl.Decimal(38, 0)).alias("sqrt_price_limit_x64"),
         pl.lit(None).cast(pl.Boolean).alias("is_base_input"),
+        pl.col("instruction_index"),
     )
     cp_swap_base_output_swaps = data["cp_swap_base_output_swaps"].select(
         pl.col("block_slot"),
@@ -484,8 +487,9 @@ def process_data(data: Dict[str, pl.DataFrame], _: Any) -> Dict[str, pl.DataFram
         pl.lit(None).cast(pl.UInt64).alias("minimum_amount_out"),
         pl.lit(None).cast(pl.UInt64).alias("amount"),
         pl.lit(None).cast(pl.UInt64).alias("other_amount_threshold"),
-        pl.lit(None).cast(pl.Decimal128).alias("sqrt_price_limit_x64"),
+        pl.lit(None).cast(pl.Decimal(38, 0)).alias("sqrt_price_limit_x64"),
         pl.lit(None).cast(pl.Boolean).alias("is_base_input"),
+        pl.col("instruction_index"),
     )
     amm_base_in_swaps = data["amm_base_in_swaps"].select(
         pl.col("block_slot"),
@@ -504,8 +508,9 @@ def process_data(data: Dict[str, pl.DataFrame], _: Any) -> Dict[str, pl.DataFram
         pl.col("minimum_amount_out"),
         pl.lit(None).cast(pl.UInt64).alias("amount"),
         pl.lit(None).cast(pl.UInt64).alias("other_amount_threshold"),
-        pl.lit(None).cast(pl.Decimal128).alias("sqrt_price_limit_x64"),
+        pl.lit(None).cast(pl.Decimal(38, 0)).alias("sqrt_price_limit_x64"),
         pl.lit(None).cast(pl.Boolean).alias("is_base_input"),
+        pl.col("instruction_index"),
     )
     amm_base_out_swaps = data["amm_base_out_swaps"].select(
         pl.col("block_slot"),
@@ -524,8 +529,9 @@ def process_data(data: Dict[str, pl.DataFrame], _: Any) -> Dict[str, pl.DataFram
         pl.lit(None).cast(pl.UInt64).alias("minimum_amount_out"),
         pl.lit(None).cast(pl.UInt64).alias("amount"),
         pl.lit(None).cast(pl.UInt64).alias("other_amount_threshold"),
-        pl.lit(None).cast(pl.Decimal128).alias("sqrt_price_limit_x64"),
+        pl.lit(None).cast(pl.Decimal(38, 0)).alias("sqrt_price_limit_x64"),
         pl.lit(None).cast(pl.Boolean).alias("is_base_input"),
+        pl.col("instruction_index"),
     )
 
     swaps = pl.concat(
@@ -544,16 +550,16 @@ def process_data(data: Dict[str, pl.DataFrame], _: Any) -> Dict[str, pl.DataFram
         pl.col("transaction_index"),
         pl.col("amount"),
         pl.col("instruction_index"),
-        pl.col("destination").alias("input_vault"),
-        pl.col("source").alias("output_vault"),
+        pl.col("destination"),
+        pl.col("source"),
     )
     checked_transfers = data["checked_transfers"].select(
         pl.col("block_slot"),
         pl.col("transaction_index"),
         pl.col("amount"),
         pl.col("instruction_index"),
-        pl.col("destination").alias("input_vault"),
-        pl.col("source").alias("output_vault"),
+        pl.col("destination"),
+        pl.col("source"),
     )
     transfers = transfers.vstack(checked_transfers)
 
@@ -582,7 +588,7 @@ def process_data(data: Dict[str, pl.DataFrame], _: Any) -> Dict[str, pl.DataFram
         pl.col("amount").alias("input_amount"),
         pl.col("instruction_index"),
         pl.lit(True).alias("found_input"),
-        pl.col("input_vault"),
+        pl.col("destination").alias("input_vault"),
     )
     output_transfers = transfers.select(
         pl.col("block_slot"),
@@ -590,7 +596,7 @@ def process_data(data: Dict[str, pl.DataFrame], _: Any) -> Dict[str, pl.DataFram
         pl.col("amount").alias("output_amount"),
         pl.col("instruction_index"),
         pl.lit(True).alias("found_output"),
-        pl.col("output_vault"),
+        pl.col("source").alias("output_vault"),
     )
 
     swaps = swaps.join(
