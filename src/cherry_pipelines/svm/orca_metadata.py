@@ -315,8 +315,8 @@ async def run(cfg: SvmConfig):
         query=query,
         steps=[
             cc.Step(
-                kind=cc.StepKind.CUSTOM,
-                config=cc.CustomStepConfig(
+                kind=cc.StepKind.POLARS,
+                config=cc.PolarsStepConfig(
                     runner=split_instructions,
                 ),
             ),
@@ -337,8 +337,8 @@ async def run(cfg: SvmConfig):
                 ),
             ),
             cc.Step(
-                kind=cc.StepKind.CUSTOM,
-                config=cc.CustomStepConfig(
+                kind=cc.StepKind.POLARS,
+                config=cc.PolarsStepConfig(
                     runner=process_data,
                 ),
             ),

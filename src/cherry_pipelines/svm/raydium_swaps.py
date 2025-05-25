@@ -14,6 +14,16 @@ from cherry_core.svm_decode import (
 
 
 from .. import db
+from .common_signatures import (
+    _TOKEN_PROGRAM_ID,
+    _TOKEN_2022_PROGRAM_ID,
+    _MEMO_PROGRAM_ID_V1,
+    _MEMO_PROGRAM_ID_V2,
+    _TOKEN_TRANSFER_SIGNATURE,
+    _TOKEN_TRANSFER_DISCRIMINATOR,
+    _TOKEN_TRANSFER_CHECKED_SIGNATURE,
+    _TOKEN_TRANSFER_CHECKED_DISCRIMINATOR,
+)
 from ..config import (
     SvmConfig,
 )
@@ -29,48 +39,6 @@ class Pipeline(SvmPipeline):
 
     async def init_db(self, client: AsyncClient):
         await init_db(client)
-
-
-_MEMO_PROGRAM_ID_V1 = "Memo1UhkJRfHyvLMcVucJwxXeuD728EqVDDwQDxFMNo"
-_MEMO_PROGRAM_ID_V2 = "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"
-
-_TOKEN_PROGRAM_ID = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-_TOKEN_2022_PROGRAM_ID = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
-_TOKEN_TRANSFER_DISCRIMINATOR = bytes([3])
-_TOKEN_TRANSFER_CHECKED_DISCRIMINATOR = bytes([12])
-_TOKEN_TRANSFER_SIGNATURE = InstructionSignature(
-    discriminator=_TOKEN_TRANSFER_DISCRIMINATOR,
-    params=[
-        ParamInput(
-            name="amount",
-            param_type=DynType.U64,
-        ),
-    ],
-    accounts_names=[
-        "source",
-        "destination",
-        "authority",
-    ],
-)
-_TOKEN_TRANSFER_CHECKED_SIGNATURE = InstructionSignature(
-    discriminator=_TOKEN_TRANSFER_CHECKED_DISCRIMINATOR,
-    params=[
-        ParamInput(
-            name="amount",
-            param_type=DynType.U64,
-        ),
-        ParamInput(
-            name="decimals",
-            param_type=DynType.U8,
-        ),
-    ],
-    accounts_names=[
-        "source",
-        "mint",
-        "destination",
-        "authority",
-    ],
-)
 
 
 _AMM_PROGRAM_ID = "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8"
@@ -762,8 +730,8 @@ async def run(cfg: SvmConfig):
         query=query,
         steps=[
             cc.Step(
-                kind=cc.StepKind.CUSTOM,
-                config=cc.CustomStepConfig(
+                kind=cc.StepKind.POLARS,
+                config=cc.PolarsStepConfig(
                     runner=split_instructions,
                 ),
             ),
@@ -836,8 +804,8 @@ async def run(cfg: SvmConfig):
                 ),
             ),
             cc.Step(
-                kind=cc.StepKind.CUSTOM,
-                config=cc.CustomStepConfig(
+                kind=cc.StepKind.POLARS,
+                config=cc.PolarsStepConfig(
                     runner=process_data,
                 ),
             ),

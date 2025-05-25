@@ -1,6 +1,6 @@
 [project]
 name = "cherry-pipelines"
-version = "0.0.16"
+version = "0.0.17"
 description = "A collection of blockchain data pipelines built with cherry"
 repository = "https://github.com/steelcake/cherry-pipelines"
 homepage = "https://github.com/steelcake/cherry-pipelines"
@@ -9,7 +9,7 @@ license = "MIT OR Apache-2.0"
 requires-python = ">=3.11"
 dependencies = [
     "cherry-core>=0.6.1",
-    "cherry-etl>=0.7.1",
+    "cherry-etl>=0.8.0",
     "clickhouse-connect>=0.8.17",
     "dotenv>=0.9.9",
     "pyarrow>=20.0.0",

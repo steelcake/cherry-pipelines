@@ -4,7 +4,7 @@ from cherry_etl import config as cc, run_pipeline
 from cherry_core import ingest, evm_signature_to_topic0
 import logging
 from typing import Dict, Any
-import polars
+import datafusion as df
 
 from .. import db
 from ..config import (
@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS {_TABLE_NAME} (
     address String,
     `from` String,
     `to` String,
-    amount Decimal128(0),
+    amount Decimal256(0),
     timestamp Int64,
     chain_id UInt64,
     INDEX ts_idx timestamp TYPE minmax GRANULARITY 4,
@@ -50,24 +50,26 @@ ORDER BY block_number;
 """)
 
 
-def join_data(data: Dict[str, polars.DataFrame], _: Any) -> Dict[str, polars.DataFrame]:
-    blocks = data["blocks"]
-    transfers = data[_TABLE_NAME]
+def join_data(
+    session_ctx: df.SessionContext, data: Dict[str, df.DataFrame], _: Any
+) -> Dict[str, df.DataFrame]:
+    _ = data
 
-    blocks = blocks.select(
-        polars.col("number").alias("block_number"),
-        polars.col("timestamp"),
-    )
-    out = transfers.join(blocks, on="block_number")
-    out = out.drop(
-        [
-            "data",
-            "topic0",
-            "topic1",
-            "topic2",
-            "topic3",
-        ]
-    )
+    out = session_ctx.sql("""
+        SELECT
+            transfers.block_number,
+            transfers.block_hash,
+            transfers.transaction_index,
+            transfers.log_index,
+            transfers.transaction_hash,
+            transfers.address,
+            transfers.`from`,
+            transfers.`to`,
+            transfers.amount,
+            blocks.timestamp
+        FROM erc20_transfers transfers
+        LEFT JOIN blocks ON blocks.number = transfers.block_number
+    """)
 
     out_d = {}
     out_d[_TABLE_NAME] = out
@@ -138,19 +140,9 @@ async def run(cfg: EvmConfig):
                     allow_decode_fail=True,
                 ),
             ),
-            # Cast all Decimal256 columns to Decimal128, we have to do this because polars doesn't support decimal256
             cc.Step(
-                kind=cc.StepKind.CAST_BY_TYPE,
-                config=cc.CastByTypeConfig(
-                    from_type=pa.decimal256(76, 0),
-                    to_type=pa.decimal128(38, 0),
-                    # Write null if the value doesn't fit in decimal128,
-                    allow_cast_fail=True,
-                ),
-            ),
-            cc.Step(
-                kind=cc.StepKind.CUSTOM,
-                config=cc.CustomStepConfig(
+                kind=cc.StepKind.DATAFUSION,
+                config=cc.DataFusionStepConfig(
                     runner=join_data,
                 ),
             ),
