@@ -4,7 +4,6 @@ import logging
 from typing import cast, Optional
 import polars as pl
 import asyncio
-import clickhouse_connect
 
 from .. import db
 from ..config import (
@@ -75,13 +74,16 @@ def select_swaps(df: pl.DataFrame) -> pl.DataFrame:
 
 
 async def run(cfg: SvmConfig):
-    read_client = await clickhouse_connect.get_async_client(
-        host="v2202505202021338886.bestsrv.de",
-        port=8123,
-        username="ilove",
-        password="cherry",
-        database="svm",
-    )
+    # For development
+    # TODO: move this to env vars
+    # read_client = await clickhouse_connect.get_async_client(
+    #     host="v2202505202021338886.bestsrv.de",
+    #     port=8123,
+    #     username="ilove",
+    #     password="cherry",
+    #     database="svm",
+    # )
+    read_client = cfg.client
 
     min_block = await db.get_min_block(
         read_client, "svm.raydium_swaps", "block_slot", None
