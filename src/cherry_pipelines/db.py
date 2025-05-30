@@ -5,6 +5,28 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+async def get_min_block(
+    client: AsyncClient, table_name: str, column_name: str, chain_id: Optional[int]
+) -> Optional[int]:
+    """Gets the minimum block number in the database for given table. Returns None if it can't get any number"""
+    try:
+        query = f"SELECT MIN({column_name}) FROM {table_name}"
+        if chain_id is not None:
+            query += f" WHERE chain_id = {chain_id}"
+
+        res = await client.query(query)
+
+        if len(res.result_rows) != 1 or len(res.result_rows[0]) != 1:
+            return None
+
+        min_block = int(res.result_rows[0][0])
+
+        return min_block
+    except Exception:
+        logger.warning("failed to get min block from db")
+        return None
+
+
 async def get_next_block(
     client: AsyncClient, table_name: str, column_name: str, chain_id: Optional[int]
 ) -> int:

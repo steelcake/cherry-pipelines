@@ -293,6 +293,7 @@ _SVM_PIPELINES = {
     "token_decimals": svm.token_decimals.Pipeline(),
     "raydium_swaps": svm.raydium_swaps.Pipeline(),
     "meteora_swaps": svm.meteora_swaps.Pipeline(),
+    "swap_prices": svm.swap_prices.Pipeline(),
 }
 
 

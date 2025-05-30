@@ -6,6 +6,7 @@ from . import (
     raydium_swaps,
     meteora_swaps,
     common_signatures,
+    swap_prices,
 )
 
 __all__ = [
@@ -16,4 +17,5 @@ __all__ = [
     "raydium_swaps",
     "meteora_swaps",
     "common_signatures",
+    "swap_prices",
 ]
