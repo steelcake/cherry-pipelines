@@ -3,6 +3,7 @@ from cherry_core import base58_decode_string
 import logging
 import polars as pl
 import asyncio
+import time
 
 from .. import db
 from ..config import (
@@ -32,6 +33,7 @@ CREATE TABLE IF NOT EXISTS {_TABLE_NAME} (
     mint String,
     price Decimal128(9),
     timestamp Int64,
+    window_total_amount Decimal128(9),
 
     INDEX ts_idx timestamp TYPE minmax GRANULARITY 4
 ) ENGINE = MergeTree 
@@ -39,13 +41,13 @@ ORDER BY (mint, block_slot);
 """)
 
 
-_WINDOW_RANGE = 50
-_BATCH_RANGE = 1000
+_WINDOW_RANGE = 20
+_BATCH_RANGE = 200
 _DECIMALS = 9
 # Decimals of both USD coins are 6
 _USD_DECIMALS = 6
 _USD_PRICE = int(pow(10, _DECIMALS - _USD_DECIMALS))
-_TOTAL_USD_THRESHOLD = 1000 * _USD_PRICE
+_TOTAL_AMOUNT_THRESHOLD = _USD_PRICE * 1_000_000
 
 _USD_COINS = [
     base58_decode_string("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),  # USDC
@@ -129,7 +131,9 @@ async def run(cfg: SvmConfig):
     while from_block < end_block:
         to_block = min(end_block - 1, from_block + _BATCH_RANGE)
 
+        start_time = time.time()
         data = await fetch_task
+        logger.debug(f"Fetch took {(time.time() - start_time) * 1000: .2f}ms")
 
         # Start the next fetch so we get next batch of data while processing the current batch
         next_from_block = from_block + _BATCH_RANGE + 1
@@ -141,6 +145,8 @@ async def run(cfg: SvmConfig):
                 next_to_block,
             )
         )
+
+        start_time = time.time()
 
         data = data.with_columns(
             pl.col("input_amount")
@@ -193,7 +199,7 @@ async def run(cfg: SvmConfig):
                 pl.col("input_amount").sum().alias("total_input"),
                 pl.col("output_amount").sum().alias("total_output"),
             )
-            .filter(pl.col("total_output").ge(pl.lit(_TOTAL_USD_THRESHOLD)))
+            .filter(pl.col("total_output").gt(_TOTAL_AMOUNT_THRESHOLD))
             .select(
                 pl.col("total_output")
                 .truediv(pl.col("total_input"))
@@ -204,6 +210,10 @@ async def run(cfg: SvmConfig):
                 pl.col("block_slot"),
                 pl.lit(_WSOL).cast(pl.Binary).alias("mint"),
                 pl.col("timestamp"),
+                pl.col("total_output")
+                .truediv(1000)
+                .cast(pl.Decimal(38, 9))
+                .alias("window_total_amount"),
             )
             .collect()
         )
@@ -271,7 +281,6 @@ async def run(cfg: SvmConfig):
                 pl.col("input_amount").sum().alias("total_input"),
                 pl.col("output_price").sum().alias("total_output"),
             )
-            .filter(pl.col("total_output").ge(pl.lit(_TOTAL_USD_THRESHOLD)))
             .select(
                 pl.col("total_output")
                 .truediv(pl.col("total_input"))
@@ -280,14 +289,22 @@ async def run(cfg: SvmConfig):
                 pl.col("block_slot"),
                 pl.col("input_mint").alias("mint"),
                 pl.col("timestamp"),
+                pl.col("total_output")
+                .truediv(1000)
+                .cast(pl.Decimal(38, 9))
+                .alias("window_total_amount"),
             )
             .collect()
         )
 
         out_prices = pl.concat([sol_prices, token_prices])
 
+        logger.debug(f"Processing took {(time.time() - start_time) * 1000: .2f}ms")
+
         if insert is not None:
+            start_time = time.time()
             await insert
+            logger.debug(f"Insert took {(time.time() - start_time) * 1000: .2f}ms")
             insert = None
 
         insert = asyncio.create_task(
