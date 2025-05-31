@@ -1,7 +1,6 @@
 from clickhouse_connect.driver.asyncclient import AsyncClient
 from cherry_core import base58_decode_string
 import logging
-from typing import cast, Optional
 import polars as pl
 import asyncio
 import clickhouse_connect
@@ -46,7 +45,8 @@ _BATCH_RANGE = 1000
 _DECIMALS = 9
 # Decimals of both USD coins are 6
 _USD_DECIMALS = 6
-_TOTAL_USD_THRESHOLD = 1000 * int(pow(10, _DECIMALS - _USD_DECIMALS))
+_USD_PRICE = int(pow(10, _DECIMALS - _USD_DECIMALS))
+_TOTAL_USD_THRESHOLD = 1000 * _USD_PRICE
 
 _USD_COINS = [
     base58_decode_string("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),  # USDC
@@ -60,7 +60,9 @@ async def query(client: AsyncClient, from_block: int, to_block: int) -> pl.DataF
         f"""
         SELECT input_amount, output_amount, input_mint, output_mint, block_slot, timestamp FROM svm.raydium_swaps
         WHERE
-            block_slot >= {from_block} AND block_slot <= {to_block}
+            block_slot >= {from_block} AND block_slot <= {to_block} AND
+            input_amount != 0 AND
+            output_amount != 0
     """,
         use_strings=False,
     )
@@ -125,32 +127,14 @@ async def run(cfg: SvmConfig):
         query(read_client, max(0, from_block - _WINDOW_RANGE), to_block)
     )
 
-    init_prices = pl.concat(
-        [
-            pl.DataFrame(
-                {
-                    # 1000 because USD tokens have 6 decimals but we want to use 9 decimals
-                    "price": pl.Series(
-                        "price",
-                        values=[1000],
-                        dtype=pl.Decimal(precision=38, scale=9),
-                    ),  # pl.repeat(1000, 1, dtype=pl.Decimal(precision=38, scale=9)),
-                    "mint": pl.Series(
-                        "mint", values=[addr], dtype=pl.Binary
-                    ),  # pl.repeat(addr, 1, dtype=pl.Binary),
-                }
-            )
-            for addr in _USD_COINS
-        ]
-    )
     while from_block < end_block:
-        to_block = min(end_block, from_block + _BATCH_RANGE)
+        to_block = min(end_block - 1, from_block + _BATCH_RANGE)
 
         data = await fetch_task
 
         # Start the next fetch so we get next batch of data while processing the current batch
-        next_from_block = from_block + _BATCH_RANGE
-        next_to_block = min(end_block, next_from_block + _BATCH_RANGE)
+        next_from_block = from_block + _BATCH_RANGE + 1
+        next_to_block = min(end_block - 1, next_from_block + _BATCH_RANGE)
         fetch_task = asyncio.create_task(
             query(
                 read_client,
@@ -181,84 +165,137 @@ async def run(cfg: SvmConfig):
                     )
                 )
             )
-            .filter(pl.col("input_mint").is_in(_USD_COINS).not_())
-        )
-
-        prices_list = []
-        for block_slot in range(from_block, to_block + 1):
-            window = data.filter(
-                pl.col("block_slot").is_between(block_slot - _WINDOW_RANGE, block_slot)
-            )
-
-            prices = init_prices
-            window, prices = calculate_prices(window, prices, [_WSOL])
-            window, prices = calculate_prices(window, prices, None)
-
-            prices_list.append(
-                prices.with_columns(
-                    [
-                        pl.lit(block_slot).alias("block_slot"),
-                    ]
+            .filter(
+                pl.col("input_mint")
+                .is_in(_USD_COINS)
+                .not_()
+                .and_(
+                    pl.col("output_mint")
+                    .eq(_WSOL)
+                    .or_(pl.col("output_mint").is_in(_USD_COINS))
                 )
             )
+        )
+
+        sol_to_usd_swaps = data.filter(
+            pl.col("input_mint").eq(_WSOL).and_(pl.col("output_mint").is_in(_USD_COINS))
+        ).lazy()
+
+        sol_prices = (
+            sol_to_usd_swaps.select("block_slot", "timestamp")
+            .join_where(
+                sol_to_usd_swaps,
+                pl.col("block_slot").ge(pl.lit(from_block).cast(pl.UInt64))
+                & (pl.col("block_slot_right") >= pl.col("block_slot") - _WINDOW_RANGE)
+                & (pl.col("block_slot_right") <= pl.col("block_slot")),
+            )
+            .group_by("block_slot", "timestamp")
+            .agg(
+                pl.col("input_amount").sum().alias("total_input"),
+                pl.col("output_amount").sum().alias("total_output"),
+            )
+            .filter(pl.col("total_output").ge(pl.lit(_TOTAL_USD_THRESHOLD)))
+            .select(
+                pl.col("total_output")
+                .truediv(pl.col("total_input"))
+                .cast(pl.Decimal(38, 9))
+                .mul(pl.lit(_USD_PRICE).cast(pl.Decimal(38, 9)))
+                .cast(pl.Decimal(38, 9))
+                .alias("price"),
+                pl.col("block_slot"),
+                pl.lit(_WSOL).cast(pl.Binary).alias("mint"),
+                pl.col("timestamp"),
+            )
+            .collect()
+        )
+
+        num_block_slots = to_block - from_block + 1
+        usd_prices = pl.repeat(
+            _USD_PRICE, num_block_slots, dtype=pl.Decimal(38, 9), eager=True
+        )
+        usd_block_slots = pl.int_range(
+            start=from_block,
+            end=to_block + 1,
+            step=1,
+            dtype=pl.UInt64,
+            eager=True,
+        )
+        usd_prices = pl.concat(
+            [
+                pl.DataFrame(
+                    {
+                        "price": usd_prices,
+                        "block_slot": usd_block_slots,
+                        "mint": pl.Series(
+                            pl.repeat(
+                                addr, num_block_slots, dtype=pl.Binary, eager=True
+                            ),
+                        ),
+                    }
+                )
+                for addr in _USD_COINS
+            ]
+        )
+        prices = pl.concat(
+            [sol_prices.select("price", "block_slot", "mint"), usd_prices]
+        )
+
+        token_swaps = (
+            data.filter(pl.col("input_mint").ne(_WSOL))
+            .join(
+                prices,
+                left_on=["output_mint", "block_slot"],
+                right_on=["mint", "block_slot"],
+            )
+            .with_columns(
+                [
+                    pl.col("output_amount")
+                    .mul("price")
+                    .cast(pl.Decimal(38, 9))
+                    .alias("output_price")
+                ]
+            )
+            .lazy()
+        )
+
+        token_prices = (
+            token_swaps.select("block_slot", "timestamp", "input_mint")
+            .join_where(
+                token_swaps,
+                pl.col("block_slot").ge(pl.lit(from_block).cast(pl.UInt64))
+                & pl.col("input_mint").eq(pl.col("input_mint_right"))
+                & (pl.col("block_slot_right") >= pl.col("block_slot") - _WINDOW_RANGE)
+                & (pl.col("block_slot_right") <= pl.col("block_slot")),
+            )
+            .group_by(["block_slot", "input_mint", "timestamp"])
+            .agg(
+                pl.col("input_amount").sum().alias("total_input"),
+                pl.col("output_price").sum().alias("total_output"),
+            )
+            .filter(pl.col("total_output").ge(pl.lit(_TOTAL_USD_THRESHOLD)))
+            .select(
+                pl.col("total_output")
+                .truediv(pl.col("total_input"))
+                .cast(pl.Decimal(38, 9))
+                .alias("price"),
+                pl.col("block_slot"),
+                pl.col("input_mint").alias("mint"),
+                pl.col("timestamp"),
+            )
+            .collect()
+        )
+
+        out_prices = pl.concat([sol_prices, token_prices])
 
         if insert is not None:
             await insert
             insert = None
+
         insert = asyncio.create_task(
-            cfg.client.insert_arrow(
-                _TABLE_NAME, cast(pl.DataFrame, pl.concat(prices_list)).to_arrow()
-            )
+            cfg.client.insert_arrow(_TABLE_NAME, out_prices.to_arrow())
         )
 
-        from_block += _BATCH_RANGE
+        from_block += _BATCH_RANGE + 1
 
     if insert is not None:
         await insert
-
-
-def calculate_prices(
-    data: pl.DataFrame, prices: pl.DataFrame, allowed_tokens: Optional[list[bytes]]
-) -> tuple[pl.DataFrame, pl.DataFrame]:
-    filtered_data = data
-    if allowed_tokens is not None:
-        filtered_data = data.filter(pl.col("input_mint").is_in(allowed_tokens))
-
-    new_prices = (
-        filtered_data.join(prices, left_on=["output_mint"], right_on=["mint"])
-        .group_by(pl.col("input_mint"))
-        .agg(
-            pl.col("input_amount").sum().alias("total_input"),
-            pl.col("output_amount")
-            .mul(pl.col("price"))
-            .cast(pl.Decimal(38, 9))
-            .sum()
-            .alias("total_output"),
-        )
-    )
-
-    new_prices = new_prices.with_columns(
-        pl.col("total_output")
-        .truediv(pl.col("total_input"))
-        .cast(pl.Decimal(38, 9))
-        .alias("out_price")
-    )
-
-    new_prices = new_prices.filter(
-        pl.col("total_output").gt(
-            pl.lit(_TOTAL_USD_THRESHOLD).cast(pl.Decimal(precision=38, scale=9))
-        )
-    )
-
-    data = data.filter(
-        pl.col("input_mint").is_in(new_prices.get_column("input_mint")).not_()
-    )
-
-    return data, pl.concat(
-        [
-            prices,
-            new_prices.select(
-                pl.col("out_price").alias("price"), pl.col("input_mint").alias("mint")
-            ),
-        ]
-    )
