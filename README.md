@@ -1,6 +1,6 @@
 # cherry-pipelines
 
-This is a collection of pipelines that are built using [cherry](https://github.com/steelcake/cherry) and ClickHouse materialized views.
+This is a collection of pipelines that are built using [cherry](https://github.com/steelcake/cherry).
 
 All data is stored in ClickHouse.
 
