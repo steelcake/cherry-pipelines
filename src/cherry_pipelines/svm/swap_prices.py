@@ -4,6 +4,7 @@ import logging
 from typing import cast, Optional
 import polars as pl
 import asyncio
+import clickhouse_connect
 
 from .. import db
 from ..config import (
@@ -31,7 +32,10 @@ async def init_db(client: AsyncClient):
 CREATE TABLE IF NOT EXISTS {_TABLE_NAME} (
     block_slot UInt64,
     mint String,
-    price Decimal128(9)
+    price Decimal128(9),
+    timestamp Int64,
+
+    INDEX ts_idx timestamp TYPE minmax GRANULARITY 4
 ) ENGINE = MergeTree 
 ORDER BY (mint, block_slot); 
 """)
@@ -39,20 +43,22 @@ ORDER BY (mint, block_slot);
 
 _WINDOW_RANGE = 50
 _BATCH_RANGE = 1000
-_NUM_PRICE_ROUNDS = 5
-_TOTAL_USD_THRESHOLD = 2000
+_DECIMALS = 9
+# Decimals of both USD coins are 6
+_USD_DECIMALS = 6
+_TOTAL_USD_THRESHOLD = 1000 * int(pow(10, _DECIMALS - _USD_DECIMALS))
 
 _USD_COINS = [
     base58_decode_string("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),  # USDC
     base58_decode_string("Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"),  # USDT
 ]
-# _SOL = base58_decode_string("So11111111111111111111111111111111111111112")
+_WSOL = base58_decode_string("So11111111111111111111111111111111111111112")
 
 
 async def query(client: AsyncClient, from_block: int, to_block: int) -> pl.DataFrame:
     res = await client.query_arrow(
         f"""
-        SELECT input_amount, output_amount, input_mint, output_mint, block_slot FROM svm.raydium_swaps
+        SELECT input_amount, output_amount, input_mint, output_mint, block_slot, timestamp FROM svm.raydium_swaps
         WHERE
             block_slot >= {from_block} AND block_slot <= {to_block}
     """,
@@ -70,20 +76,21 @@ def select_swaps(df: pl.DataFrame) -> pl.DataFrame:
         "input_mint",
         "output_mint",
         "block_slot",
+        "timestamp",
     )
 
 
 async def run(cfg: SvmConfig):
     # For development
     # TODO: move this to env vars
-    # read_client = await clickhouse_connect.get_async_client(
-    #     host="v2202505202021338886.bestsrv.de",
-    #     port=8123,
-    #     username="ilove",
-    #     password="cherry",
-    #     database="svm",
-    # )
-    read_client = cfg.client
+    read_client = await clickhouse_connect.get_async_client(
+        host="v2202505202021338886.bestsrv.de",
+        port=8123,
+        username="ilove",
+        password="cherry",
+        database="svm",
+    )
+    # read_client = cfg.client
 
     min_block = await db.get_min_block(
         read_client, "svm.raydium_swaps", "block_slot", None
@@ -109,16 +116,33 @@ async def run(cfg: SvmConfig):
 
     insert = None
 
-    end_block = max(0, end_block - _WINDOW_RANGE)
-
     if from_block >= end_block:
         return
 
+    from_block = from_block + _WINDOW_RANGE
     to_block = min(end_block, from_block + _BATCH_RANGE)
     fetch_task = asyncio.create_task(
-        query(read_client, max(0, from_block - _WINDOW_RANGE), to_block + _WINDOW_RANGE)
+        query(read_client, max(0, from_block - _WINDOW_RANGE), to_block)
     )
 
+    init_prices = pl.concat(
+        [
+            pl.DataFrame(
+                {
+                    # 1000 because USD tokens have 6 decimals but we want to use 9 decimals
+                    "price": pl.Series(
+                        "price",
+                        values=[1000],
+                        dtype=pl.Decimal(precision=38, scale=9),
+                    ),  # pl.repeat(1000, 1, dtype=pl.Decimal(precision=38, scale=9)),
+                    "mint": pl.Series(
+                        "mint", values=[addr], dtype=pl.Binary
+                    ),  # pl.repeat(addr, 1, dtype=pl.Binary),
+                }
+            )
+            for addr in _USD_COINS
+        ]
+    )
     while from_block < end_block:
         to_block = min(end_block, from_block + _BATCH_RANGE)
 
@@ -131,7 +155,7 @@ async def run(cfg: SvmConfig):
             query(
                 read_client,
                 max(0, next_from_block - _WINDOW_RANGE),
-                next_to_block + _WINDOW_RANGE,
+                next_to_block,
             )
         )
 
@@ -143,59 +167,32 @@ async def run(cfg: SvmConfig):
             .cast(pl.Decimal(precision=38, scale=9))
             .alias("output_amount"),
         )
+        data = (
+            select_swaps(data)
+            .vstack(
+                select_swaps(
+                    data.rename(
+                        {
+                            "input_amount": "output_amount",
+                            "output_amount": "input_amount",
+                            "input_mint": "output_mint",
+                            "output_mint": "input_mint",
+                        }
+                    )
+                )
+            )
+            .filter(pl.col("input_mint").is_in(_USD_COINS).not_())
+        )
 
         prices_list = []
         for block_slot in range(from_block, to_block + 1):
             window = data.filter(
-                pl.col("block_slot").is_between(
-                    block_slot - _WINDOW_RANGE, block_slot + _WINDOW_RANGE
-                )
-            )
-            window = (
-                select_swaps(window)
-                .vstack(
-                    select_swaps(
-                        window.rename(
-                            {
-                                "input_amount": "output_amount",
-                                "output_amount": "input_amount",
-                                "input_mint": "output_mint",
-                                "output_mint": "input_mint",
-                            }
-                        )
-                    )
-                )
-                .filter(pl.col("input_mint").is_in(_USD_COINS).not_())
+                pl.col("block_slot").is_between(block_slot - _WINDOW_RANGE, block_slot)
             )
 
-            prices = pl.concat(
-                [
-                    pl.DataFrame(
-                        {
-                            # 1000 because USD tokens have 6 decimals but we want to use 9 decimals
-                            "price": pl.Series(
-                                "price",
-                                values=[1000],
-                                dtype=pl.Decimal(precision=38, scale=9),
-                            ),  # pl.repeat(1000, 1, dtype=pl.Decimal(precision=38, scale=9)),
-                            "mint": pl.Series(
-                                "mint", values=[addr], dtype=pl.Binary
-                            ),  # pl.repeat(addr, 1, dtype=pl.Binary),
-                        }
-                    )
-                    for addr in _USD_COINS
-                ]
-            )
-
-            # window, prices = calculate_sol_prices(window, prices)
-
-            for _ in range(0, _NUM_PRICE_ROUNDS):
-                if window.height == 0:
-                    break
-
-                window, prices = calculate_prices(window, prices)
-
-            window, prices = calculate_prices(window, prices, top=None)
+            prices = init_prices
+            window, prices = calculate_prices(window, prices, [_WSOL])
+            window, prices = calculate_prices(window, prices, None)
 
             prices_list.append(
                 prices.with_columns(
@@ -221,10 +218,14 @@ async def run(cfg: SvmConfig):
 
 
 def calculate_prices(
-    data: pl.DataFrame, prices: pl.DataFrame, top: Optional[int] = 5
+    data: pl.DataFrame, prices: pl.DataFrame, allowed_tokens: Optional[list[bytes]]
 ) -> tuple[pl.DataFrame, pl.DataFrame]:
+    filtered_data = data
+    if allowed_tokens is not None:
+        filtered_data = data.filter(pl.col("input_mint").is_in(allowed_tokens))
+
     new_prices = (
-        data.join(prices, left_on=["output_mint"], right_on=["mint"])
+        filtered_data.join(prices, left_on=["output_mint"], right_on=["mint"])
         .group_by(pl.col("input_mint"))
         .agg(
             pl.col("input_amount").sum().alias("total_input"),
@@ -248,9 +249,6 @@ def calculate_prices(
             pl.lit(_TOTAL_USD_THRESHOLD).cast(pl.Decimal(precision=38, scale=9))
         )
     )
-
-    if top is not None:
-        new_prices = new_prices.top_k(top, by=pl.col("total_output"))
 
     data = data.filter(
         pl.col("input_mint").is_in(new_prices.get_column("input_mint")).not_()
