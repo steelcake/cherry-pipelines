@@ -292,6 +292,7 @@ _SVM_PIPELINES = {
     "orca_metadata": svm.orca_metadata.Pipeline(),
     "token_decimals": svm.token_decimals.Pipeline(),
     "raydium_swaps": svm.raydium_swaps.Pipeline(),
+    "raydium_trades": svm.raydium_trades.Pipeline(),
     "meteora_swaps": svm.meteora_swaps.Pipeline(),
     "swap_prices": svm.swap_prices.Pipeline(),
 }
