@@ -1,5 +1,4 @@
 from clickhouse_connect.driver.asyncclient import AsyncClient
-from cherry_core import base58_decode_string
 import logging
 import polars as pl
 import asyncio
@@ -145,6 +144,8 @@ async def run(cfg: SvmConfig):
     prices_min_block = await db.get_min_block(
         read_client, "svm.swap_prices", "block_slot", None
     )
+    if swaps_min_block is None or prices_min_block is None:
+        raise ValueError("Both swaps_min_block and prices_min_block must be non-None")
     source_tables_min_block = max(swaps_min_block, prices_min_block)
     logger.info(f"min_block of source tables: {source_tables_min_block}")
 
@@ -171,7 +172,11 @@ async def run(cfg: SvmConfig):
     if source_tables_min_block is not None:
         from_block = max(from_block, source_tables_min_block)
 
-    end_block = min(source_tables_max_block, cfg.to_block)
+    if cfg.to_block is not None:
+        end_block = min(source_tables_max_block, cfg.to_block)
+    else:
+        end_block = source_tables_max_block
+
     logger.info(f"starting to ingest from block {from_block} until {end_block}")
 
     insert = None
