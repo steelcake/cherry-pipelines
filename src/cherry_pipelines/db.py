@@ -37,7 +37,6 @@ async def get_next_block(
             query += f" WHERE chain_id = {chain_id}"
         res = await client.query(query)
         max_block = int(res.result_rows[0][0] or 0)
-        logger.info(f"max_block from db is {max_block}")
         return max_block + 1 if max_block > 0 else 0
 
     except Exception:
